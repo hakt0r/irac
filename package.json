@@ -1,0 +1,37 @@
+{
+  "name": "irac",
+  "version": "0.0.9",
+  "description": "tor + personal vpn",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hakt0r/irac.git"
+  },
+  "author": "anx+fly",
+  "license": "GPLv3",
+  "dependencies": {
+    "colors": "~0.6.2",
+    "optimist": "~0.6.0",
+    "coffee-script": "~1.6.3",
+    "buffertools": "~1.1.1",
+    "portfinder": "~0.2.1",
+    "socks-factory": "~1.0.2",
+    "sudo": "~1.0.3",
+    "cerosine": "git://github.com/hakt0r/cerosine"
+  },
+  "devDependencies": {
+    "coffee-script": "~1.6.3"
+  },
+  "keywords": [
+    "tor",
+    "usenet",
+    "p2p",
+    "darknet"
+  ],
+  "bugs": {
+    "url": "https://github.com/hakt0r/irac/issues"
+  }
+}
