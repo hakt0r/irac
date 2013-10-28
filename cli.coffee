@@ -74,7 +74,7 @@ init = new ync.Sync
     config_dir @proceed
     Tor.readConf()
   execute : -> switch (cmd = optimist.argv._.shift())
-    when 'port'    then console.log Tor.port
+    when 'port'    then console.log Tor.port, 33023
     when 'key'     then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
     when 'id'      then console.log [ nick + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
