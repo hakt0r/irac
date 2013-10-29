@@ -1,2 +1,1 @@
-require('coffee-script')
-require('./cli')
+require('./lib/cli')

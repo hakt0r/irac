@@ -2,8 +2,23 @@
   "name": "irac",
   "version": "0.0.9",
   "description": "tor + personal vpn",
-  "main": "index.js",
+  "main": "index.html",
+  "node-main": "index.js",
+  "window": {
+    "show": true,
+    "toolbar": false,
+    "frame": false,
+    "position": "center",
+    "width": 360,
+    "height": 300,
+    "min_width": 220,
+    "min_height": 220
+  },
+  "webkit": {
+    "plugin": true
+  },
   "scripts": {
+    "prepublish": "sh bin/make",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,7 +35,9 @@
     "portfinder": "~0.2.1",
     "socks-factory": "~1.0.2",
     "sudo": "~1.0.3",
-    "cerosine": "git://github.com/hakt0r/cerosine"
+    "ync": "~0.0.5",
+    "anapi": "~0.0.4",
+    "cerosine": "~0.0.4"
   },
   "devDependencies": {
     "coffee-script": "~1.6.3"

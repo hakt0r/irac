@@ -51,9 +51,8 @@
 global.colors   = require 'colors'
 global.optimist = require 'optimist'
 global.fs       = require 'fs'
-
-global.ync      = require '../ync/src/ync'
-global.shell    = require '../gear/src/ultrashell'
+global.ync      = require 'ync'
+global.shell    = require './node_modules/cerosine/lib/ultrashell.js'
 global.ultra    = ultra = new shell.Ultrashell
 global._base    = process.env.HOME + '/.irac'
 
@@ -79,8 +78,9 @@ init = new ync.Sync
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
     when 'id'      then console.log [ nick + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
     when 'tor'     then Tor.start (->)
-    else Tor.start -> require('./kreem.coffee').listen
-      addr   : '0.0.0.0'
-      port   : optimist.argv.port || 33023
-      nick   : nick
-      pubkey : 'lolcats'
+    else Tor.start ->
+      require('./kreem.coffee').listen
+        addr   : '0.0.0.0'
+        port   : optimist.argv.port || 33023
+        nick   : nick
+        pubkey : 'lolcats'

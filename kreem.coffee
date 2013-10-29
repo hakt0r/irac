@@ -139,76 +139,26 @@ listen = (opts) ->
       socket.end()
 
   router.listen port, addr
-  setTimeout (-> connect 'jt6jfstgkbbahnhe.onion', 33023 if port is 33023), 1000
 
   ###
     Webinterface
   ###
 
-  global.App = new Server
-    project   : "irac"
+  api = new AnAPI port : 8081, subsystem : ->
+  api.api.register
     subsystem : Peer.handlePeerMessage
     api :
-      ptt : (down) -> if down then Recorder.start() else Recorder.stop()
+      ptt : (down) ->
+        if down then Recorder.start() else Recorder.stop()
+        @reply(
+          if Recorder.running then ptt : open : 'all'
+          else ptt : close : null )
       buddy :
         list : ->
           l = []
           l.push { id : id, nick : p.info.user, ip : p.remoteAddress } for id, p of Peer.byId
           @reply buddy:list: l
         add : (id) -> connect id
-
-    ready : -> console.log 'ui ready'
-    js :
-      sm2 : 'https://raw.github.com/scottschiller/SoundManager2/master/script/soundmanager2-nodebug-jsmin.js'
-      ync : '../../ync/src/ync.coffee'
-    template  : """
-    <html><head><title>irac[0.9/kreem] - #{nick}</title>
-    </head><body>
-      <div id="header">
-        <img class="avatar" src="#" />
-        <span class="nick">#{nick}</span>
-        <button id="ptt">Push to Talk</speak>
-        <button id="add">Add Buddy</speak>
-      </div>
-      <div id="buddys"></div>
-      <div id="history"></div>
-      <div id="chat"><input /></div>
-      <link rel='stylesheet' href='var/theme/styles.css' />
-    </body>
-    </html>"""
-    page : coffee : init : ->
-      window.Api = Api = new WebApi __apiconf
-      Api.connect ->
-
-        ptt = $('#ptt').on 'click', ->
-          unless ptt.hasClass 'down'
-            Api.send ptt : true
-            ptt.addClass 'down'
-          else
-            Api.send ptt : false
-            ptt.removeClass 'down'
-
-        d = new CDialog
-          parent : $ 'body'
-          id : 'addBuddy'
-          title : 'Add Buddy'
-          body : html : '<input/>'
-          foot : buttons :
-            ok : -> d.close Api.send buddy:add: d.$.find("input").val()
-            cancel : -> d.close()
-        add = $('#add').on 'click', -> d.toggle()
-
-        Api.send buddy : list : '#all'
-        Api.register buddy : list : (buddys) ->
-          list = $ '#buddys'
-          list.append """
-            <div class='buddy'>
-              <img src="img/buddy/#{b.nick}.png" />
-              <span class='nick'>#{b.nick}</span>
-              <span class='ip'>#{b.ip}</span>
-            </div>
-          """ for id, b of buddys
-
           
 module.exports =
   Stream : Stream

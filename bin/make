@@ -1,0 +1,5 @@
+#!/bin/sh
+ls *.coffee
+coffee -o lib/ -c *.coffee
+test -f lib/sm2.js || wget -O lib/sm2.js "https://raw.github.com/scottschiller/SoundManager2/master/script/soundmanager2-nodebug-jsmin.js"
+cp node_modules/ync/lib/ync.js lib/
