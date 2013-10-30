@@ -52,9 +52,14 @@ global.colors   = require 'colors'
 global.optimist = require 'optimist'
 global.fs       = require 'fs'
 global.ync      = require 'ync'
-global.shell    = require './node_modules/cerosine/lib/ultrashell.js'
-global.ultra    = ultra = new shell.Ultrashell
+global.shell    = require '../node_modules/cerosine/lib/ultrashell.js'
 global._base    = process.env.HOME + '/.irac'
+
+progress = new shell.Shellglyph [
+  '@'.red, '|'.red, '/'.red,
+  '-'.yellow, '\\'.yellow, '-'.yellow,
+  '\\'.green, '-'.green, '/'.green,
+  '@'.green, '[' + 'tor'.green + ']' ]
 
 me  = 'cli'.blue
 Tor = require './tor'
@@ -62,7 +67,7 @@ Tor = require './tor'
 config_dir = (callback) -> fs.exists _base, (exists) ->
   if exists then callback()
   else fs.mkdir _base, (result) ->
-    ultra.log me, 'created', _base, if result? then result else ''
+    console.log me, 'created', _base, if result? then result else ''
     fs.writeFileSync _base + '/nick', nick unless nick is 'anonyomus'
     callback() if callback?
 
@@ -79,7 +84,7 @@ init = new ync.Sync
     when 'id'      then console.log [ nick + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
     when 'tor'     then Tor.start (->)
     else Tor.start ->
-      require('./kreem.coffee').listen
+      require('./kreem').listen
         addr   : '0.0.0.0'
         port   : optimist.argv.port || 33023
         nick   : nick

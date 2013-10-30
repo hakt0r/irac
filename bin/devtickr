@@ -1,0 +1,3 @@
+#!/bin/sh
+tickr 'npm run-script prepublish; ./node-webkit/nw .; echo reason' \
+	src/*.coffee

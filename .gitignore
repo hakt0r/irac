@@ -1,5 +1,7 @@
 node_modules
 etc/
 tmp/
-lib/
+js/
 node-webkit/
+css
+fonts

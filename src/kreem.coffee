@@ -1,12 +1,7 @@
-require 'buffertools'
+global.EventEmitter = EventEmitter = require('events').EventEmitter
 
-util = require 'util'; _oldp = util.print; _oldc = console.log
-util.print  = (args...) -> _oldp.apply util, args
-console.log = (args...) -> _oldc.apply util, args
-
-{ Server }   = require '../cerosine/src/server'
-{ i19 }      = require '../cerosine/src/cerosine'
-sha512       = require '../cerosine/src/sha512'
+{ i19 } = require '../../cerosine/src/cerosine'
+sha512  = require '../../cerosine/src/sha512'
 
 class Peer
   @byId : {}
@@ -15,8 +10,7 @@ class Peer
   @broadcast : (data) => socket.write data for id, socket of @byId
   @handshake : (peer) -> peer.write "IRAC kreem/0.9 PEER " + @nick + ' ' + @pubkey + "\r\n"
 
-  @handlePeerMessage : (peer) =>
-    info      = peer.info = { user : 'anonyomus' }
+  @handlePeerMessage : (peer,info) =>
     buffer    = new Buffer ''
     binary    = no
     frameSize = 0
@@ -39,10 +33,13 @@ class Peer
           console.log 'ascii'.red, type, msg.length, msg
           switch type
             when 'IRAC'
+              debugger
               info.version = msg.shift()
               info.class   = msg.shift()
               info.user    = msg.shift()
               info.pubkey  = msg.join ' '
+              info.socket  = peer
+              kreem.emit 'connection', info
             when 'MESG'
               id   = parseInt msg[0]
               mime = msg[1]
@@ -72,15 +69,17 @@ class Stream
 
 cp = require 'child_process'
 
-class Player
-  @init : =>
+class HackyPlayer extends EventEmitter
+  constructor : ->
     @decoder = cp.spawn 'padsp',['opusdec','-'],stdio:['pipe','ignore','ignore']
     @decoder.on 'end', (error) -> console.log 'decoder'.red, error
-  @frame : (stream, msg) =>
+  frame : (stream, msg) =>
     @decoder.stdin.write msg
 
-class Recorder
-  @start : ->
+class HackyRecorder extends EventEmitter
+  running : no
+  toggle : => if @running then @stop() else @start()
+  start  : =>
     return if @running
     @running = yes
     stream = new Stream mime : 'audio/opus'
@@ -88,12 +87,15 @@ class Recorder
     encode  = cp.spawn 'opusenc',['--ignorelength','--bitrate','96','-','-'],stdio:['pipe','pipe','ignore']
     @record.stdout.pipe encode.stdin
     encode.stdout.on 'data', stream.feed
-  @stop : ->
+    @emit 'start'
+  stop : =>
     return unless @running
     @running = no
     @record.kill('SIGKILL')
+    @emit 'stop'
 
-Player.init()
+Recorder = new HackyRecorder
+Player   = new HackyPlayer
 
 ###
   Network Implementation
@@ -102,10 +104,11 @@ Player.init()
 SocksFactory = require "socks-factory"
 
 connect = (host='127.0.0.1',port=33023) ->
+  id = Peer.lastid++
+  nfo = id : id, user : 'anonyomus', onion : host, port : port
   if host.indexOf(':') > 0
     [ host, port ] = host.split ':'
     port = parseInt port
-  # console.log "connecting".yellow, host + ":" + port
   options =
     proxy:  ipaddress: "127.0.0.1", port: 9050, type: 5
     target: host: host, port: port
@@ -113,7 +116,7 @@ connect = (host='127.0.0.1',port=33023) ->
   SocksFactory.createConnection options, (err, socket, info) ->
     unless err
       Peer.handshake socket
-      socket.on "data", Peer.handlePeerMessage socket
+      socket.on "data", Peer.handlePeerMessage(socket, nfo)
       socket.on "error", console.log
       socket.resume()
     else console.log host, err
@@ -122,46 +125,35 @@ listen = (opts) ->
   { addr, port, nick, pubkey } = opts
   Peer.nick = nick
   Peer.pubky = pubkey
-
   router = require("net").createServer (socket) ->
     id = Peer.lastid++
-    Peer.byId[id] = socket
-    Peer.handshake socket
-    socket.on "data", Peer.handlePeerMessage socket
+    info = id : id, user : 'anonyomus'
+    socket.on "data", Peer.handlePeerMessage(socket,info)
     socket.on "end", ->
-      console.log "@" + uname + " disconnected from " + socket.remoteAddress
-      Peer.loose uname
+      console.log "@" + info.user + " disconnected from " + socket.remoteAddress
       socket.end()
       delete Peer.byId[id]
+      kreem.emit 'disconnected', info
     socket.on "timeout", ->
-      console.log "@" + uname + " timeout from " + socket.remoteAddress
-      Peer.loose uname
+      console.log "@" + info.user + " timeout from " + socket.remoteAddress
       socket.end()
+      delete Peer.byId[id]
+      kreem.emit 'timeout', info
+    Peer.byId[id] = socket
+    Peer.handshake socket
 
   router.listen port, addr
 
-  ###
-    Webinterface
-  ###
+  console.log [(s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
 
-  api = new AnAPI port : 8081, subsystem : ->
-  api.api.register
-    subsystem : Peer.handlePeerMessage
-    api :
-      ptt : (down) ->
-        if down then Recorder.start() else Recorder.stop()
-        @reply(
-          if Recorder.running then ptt : open : 'all'
-          else ptt : close : null )
-      buddy :
-        list : ->
-          l = []
-          l.push { id : id, nick : p.info.user, ip : p.remoteAddress } for id, p of Peer.byId
-          @reply buddy:list: l
-        add : (id) -> connect id
-          
-module.exports =
-  Stream : Stream
-  Peer : Peer
-  connect : connect
-  listen : listen
+  setTimeout ( -> connect 'jt6jfstgkbbahnhe.onion' ), 3000
+
+kreem = new EventEmitter
+kreem.Player = Player
+kreem.Recorder = Recorder
+kreem.Stream = Stream
+kreem.Peer = Peer
+kreem.connect = connect
+kreem.listen = listen
+
+module.exports = kreem

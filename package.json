@@ -3,14 +3,14 @@
   "version": "0.0.9",
   "description": "tor + personal vpn",
   "main": "index.html",
-  "node-main": "index.js",
   "window": {
+    "icon": "img/logo.png",
     "show": true,
-    "toolbar": false,
-    "frame": false,
+    "toolbar": true,
+    "frame": true,
     "position": "center",
     "width": 360,
-    "height": 300,
+    "height": 600,
     "min_width": 220,
     "min_height": 220
   },

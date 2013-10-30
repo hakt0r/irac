@@ -1,22 +1,29 @@
-<html><head><title>irac[0.9/kreem] - #{nick}</title>
-  <script type="text/javascript" src="lib/sm2.js"></script>
-  <script type="text/javascript" src="lib/ync.js"></script>
-  <script type="text/javascript" src="lib/webkit.js"></script>
-  <link rel='stylesheet' href='var/theme/styles.css' />
-</head><body>
+<!DOCTYPE html>
+<html><head><title>irac[0.9/kreem]</title>
+  <script type="text/javascript" src="js/jquery.js"></script>
+  <script type="text/javascript" src="js/bootstrap.js"></script>
+  <script type="text/javascript" src="js/sm2.js"></script>
+  <script type="text/javascript" src="js/webkit.js"></script>
+  <link rel='stylesheet' href='css/bootstrap.css' />
+  <link rel='stylesheet' href='css/styles.css' />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+</head><body style="-webkit-app-region: drag">
   <div id="header">
     <div id="menu">
       <button id="logo" src="var/theme/logo.svg"></button>
+      <button id="play"></button>
+      <button id="upload"></button>
       <button id="add"></button>
-      <button id="prefs"></button><hr/>
+      <button id="settings"></button>
     </div>
     <div id="profile">
-      <img class="avatar" src="#" />
-      <span class="nick">#{nick}</span>
+      <img  class="avatar" src="#" />
+      <span class="nick"></span>
     </div>
-    <div id="chat"><input /></div>
   </div>
-  <div id="buddys"></div>
-  <div id="history"></div>
+  <div id="buddys">
+  </div>
+  <div id="history">
+  </div>
 </body>
 </html>

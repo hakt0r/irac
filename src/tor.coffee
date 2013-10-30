@@ -1,12 +1,7 @@
 _me = 'tor'.grey
 
+ync = require 'ync' unless ync?
 portfinder = require 'portfinder'
-
-progress = new shell.Shellglyph [
-  '@'.red, '|'.red, '/'.red,
-  '-'.yellow, '\\'.yellow, '-'.yellow,
-  '\\'.green, '-'.green, '/'.green,
-  '@'.green, '[' + 'tor'.green + ']' ]
 
 module.exports = class Tor
   @running : no
@@ -24,8 +19,7 @@ module.exports = class Tor
   @readConf : -> for name, share of @hiddenService
     try
       share.onion  = r = Tor.readOnion name
-      share.pubkey = Tor.readKey   name
-      # ultra.log _me, 'hidden'.red, name, share.port, r.yellow
+      share.pubkey = Tor.readKey name
 
   @start : (onready) -> startup = new ync.Sync
       fork : yes
@@ -35,33 +29,30 @@ module.exports = class Tor
         portfinder.getPort (err,port) ->
           if port isnt portfinder.basePort
             Tor.running = yes
-            ultra.log _me, 'tor seems to be running'.yellow
+            console.log _me, 'tor seems to be running'.yellow
             startup.run('ready')
           else startup.proceed Tor.port = port
 
       config_tor : ->
         share.dir = _base+'/'+name for name, share of @hiddenService
-        ultra.log _me, 'update' + _base + '/torrc'
+        console.log _me, 'update' + _base + '/torrc'
         fs.writeFile _base + '/torrc', Tor.makerc(), startup.proceed
 
       start_tor  : ->
         cmd = 'tor -f '+_base+'/torrc'
-        ultra.log _me, 'running', cmd
-        i = 0; ultra.print _me, '['+cmd.red+']'
+        console.log _me, 'running', cmd
         shell.readlines cmd,
           line : (line) ->
-            ultra.log 'tor'.grey, line
+            console.log 'tor'.grey, line
             if r = line.match /Bootstrapped ([0-9]+)%/
-              ultra.reset()
-              ultra.print _me, ' ', progress.show((r[1]/10).toFixed 0)
+              console.log line
             else if line.match /Tor has successfully opened a circuit/
               startup.proceed()
 
       ready : ->
         Tor.readConf()
         if onready?
-          ultra.reset()
-          ultra.log _me, 'post-init'.green
+          console.log _me, 'post-init'.green
           onready()
 
   @makerc : ->

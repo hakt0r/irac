@@ -15,8 +15,8 @@
    height="20"
    id="svg2"
    version="1.1"
-   inkscape:version="0.48.3.1 r9886"
-   sodipodi:docname="upload_off.svg">
+   inkscape:version="0.48.4 r9939"
+   sodipodi:docname="upload.svg">
   <defs
      id="defs4">
     <linearGradient
@@ -45,7 +45,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="15.839192"
-     inkscape:cx="23.567906"
+     inkscape:cx="10.593759"
      inkscape:cy="9.6490478"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -63,7 +63,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -75,19 +75,19 @@
     <g
        id="g4308"
        transform="translate(0,0.3147484)"
-       style="fill:#ff0000">
+       style="fill:#ffffff">
       <rect
          y="1039.3362"
          x="6.243495"
          height="10.584022"
          width="7.5130095"
          id="rect4301"
-         style="fill:#ff0000;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+         style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" />
       <path
          inkscape:connector-curvature="0"
          id="rect4303"
          d="m 10,1034.1747 -7.21875,7.25 14.4375,0 -7.21875,-7.25 z"
-         style="fill:#ff0000;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+         style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" />
     </g>
   </g>
 </svg>
