@@ -1,8 +1,0 @@
-(	cd node_modules;
-	p=$(pwd)
-	for i in $(ls);do
-	  cd $p/$i
-	  echo -n rebuild: $i' '
-	  nw-gyp rebuild --target=0.7.5 >/dev/null 2>&1 &&
-	  	echo ok || echo fail
-	done; )

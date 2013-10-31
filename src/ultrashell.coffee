@@ -49,86 +49,144 @@
 
 ###
 
-$ = global.$
+cp       = require 'child_process'
+sudo     = require 'sudo'
+net      = require 'net'
+util     = require 'util'
+colors   = require 'colors'
 
-class Dialog
-  hidden : yes
-  constructor : (opts={}) ->
-    me = @
-    { @id, @frame, btn, html, form, hide } = opts
-    @frame = Dialog.frame unless @frame?
-    @hidden = hidden if hidden?
-    @frame.append """
-      <div class="dialog" id="#{@id}">
-        <form role="form" target="#">
-        </form>
-      </div>"""
-    @outer = $ @frame.find('.dialog').toArray().pop()
-    @$     = $ @frame.find('.dialog > form').toArray().pop()
-    @$.append html if html?
-    ( _new_fld = (id, opts) =>
-      opts.id = id unless opts.id?
-      opts.frame = @$ unless opts.frame?
-      new opts.type opts ) id, opts  for id, opts of form
-    ( _new_btn = (id, click) =>
-      if typeof click is 'function'
-        opts = {click:click}
-      else opts = click
-      opts.id = id    unless opts.id?
-      opts.frame = @$ unless opts.frame?
-      opts.parent = me
-      new Button opts )  id, click for id, click of btn
-    if @hidden then @outer.fadeOut(0)
-  close  : (c) => @hide c
-  show   : (c) => if @hidden
-    @outer.fadeIn  c; @hidden = false
-  hide   : (c) => unless @hidden
-    @outer.fadeOut c; @hidden = true 
-  toggle : (c) => if @hidden then @show c else @hide c
+__env = process.env
+__env.LANG = 'C'
 
-class Button
-  constructor : (opts={}) ->
-    { @id, @title, @frame, @parent, click } = opts
-    @title = @id unless @title?
-    css = 'pull-right' if @id is 'default'
-    css = 'pull-left'  if @id is 'cancel'
-    @frame.append """<button class="btn btn-#{@id} #{css}">#{@title}</button>"""
-    @$ = $ @frame.find('> button').toArray().pop()
-    @$.on 'click', (e) =>
-      e.preventDefault()
-      click.apply(@parent,arguments)
+class Ultrashell
+  old_key  : null
+  old_mode : 'log'
+  linebuffer : ''
+  print : (args...) =>
+    @linebuffer += args.join ''
+    util.print.apply null, args
+  back : (howmany=1)=>
+    @linebuffer = @linebuffer.substr(0,-1)
+    util.print "\x1b[#{howmany}D"
+  reset  : =>
+    @linebuffer = ''; util.print "\x1b[0E\x1b[0J";
+  clear  : =>
+    @linebuffer = ''; util.print "\x1b[2J";
+  commit : =>
+    @linebuffer = ''; util.print '\n'
+  log : =>
+    util.print  "\x1b[0E\x1b[0J";
+    console.log.apply null, arguments
+    util.print  @linebuffer
 
-class Field
-  constructor : (opts={}) ->
-    { @id, @title, @frame, @change, @placeholder, value, type } = opts
-    value = """ value="#{value}" """ if value?
-    @title = @id unless @title?
-    @placeholder = '' unless @placeholder?
-    @frame.append """
-      <div class="form-group">
-        <label for="#{@id}">#{@title}</label>
-        <input type="#{type}" class="form-control" id="#{@id}" placeholder="#{@placeholder}" #{value}>
-      </div>"""
-    @$ = $ @frame.find('div > input').toArray().pop()
-    @$.on 'change', @change
+class Shellglyph
+  constructor : (@glyph) ->
+    @glyph = [ '|'.yellow, '/'.green, '-'.yellow, '\\'.green ] unless @glyph?
+    @index = @glyph.length - 1
+  last  :     => @glyph[@index]
+  next  :     => @glyph[(@index = (@index + 1) % (@glyph.length))]
+  show  : (i) => @glyph[(i % (@glyph.length))]
 
-class Text extends Field
-  constructor : (opts={}) -> opts.type = 'text'; super opts
+module.exports = Lib = 
 
-class Password extends Field
-  constructor : (opts={}) -> opts.type = 'password'; super opts
+  Shellglyph : Shellglyph
+  Ultrashell : Ultrashell
 
-class eMail extends Field
-  constructor : (opts={}) -> opts.type = 'email'; super opts
+  sh : (cmd,args,callback) ->
+    c = cp.spawn cmd, args, {encoding:'utf8'}
+    c.on 'exit', callback
 
-class File extends Field
-  constructor : (opts={}) -> opts.type = 'file'; super opts
+  script : (cmd,callback) ->
+    c = cp.spawn "sh", ["-c",cmd]
+    c.stdout.setEncoding 'utf8'
+    c.stderr.setEncoding 'utf8'
+    if callback?
+      c.buf = []
+      c.stdout.on 'data', (d) -> c.buf.push(d)
+      c.stderr.on 'data', (d) -> c.buf.push(d)
+      c.on 'close', (e) -> callback(e, c.buf.join().trim())
+    else
+      c.stdout.on 'data', (d) -> console.log d
+      c.stderr.on 'data', (d) -> console.log d
 
-module.exports = 
-  Text : Text
-  eMail : eMail
-  Field : Field
-  Dialog : Dialog
-  Button : Button
-  Password : Password
-  File : File
+  scriptline : (cmd,callback) ->
+    c = cp.spawn "sh", [ "-c", cmd ]
+    c.stdout.setEncoding 'utf8'
+    c.stderr.setEncoding 'utf8'
+    callback.error = console.log unless callback.error
+    callback.line  = console.log unless callback.line
+    callback.end   = (->) unless callback.end
+    c.stderr.on 'data', (data) -> callback.error l.trim() for l in data.split '\n'
+    c.stdout.on 'data', (data) -> callback.line  l.trim() for l in data.split '\n'
+    c.on 'close', callback.end
+
+  readlines : (cmd,opts) ->
+    c = cp.spawn "sh", ["-c", cmd]
+    c.stdout.setEncoding 'utf8'
+    c.stderr.setEncoding 'utf8'
+    if opts.end  then c.on       'close', (e) -> opts.end     e
+    if opts.line then c.stdout.on 'data', (d) ->
+      d = d.split /\n/g ; d.pop() ; for line in d
+        opts.line line
+    if opts.error then c.stderr.on 'data', (d) ->
+      d = d.split /\n/g ; d.pop() ; for line in d
+        opts.error line
+
+  waitproc : (opts={}) ->
+    start = Date.now()/1000 # util.print "wait ".yellow + " for ".white + opts.name + ' '
+    wait = setInterval ( ->
+      Lib.running opts.name, (e) ->
+        unless e
+          clearInterval wait
+          opts.done true
+        else
+          clearInterval wait
+          opts.done false if Date.now() / 1000 - start > opts.timeout
+          util.print "."
+    ), 250
+
+  running : (name, callback) ->
+    Lib.script "busybox ps -o comm | grep '^#{name}'", callback
+
+  killall : (name, callback, fail) -> # util.print "kill".yellow + ' ' + name + ' '
+    Lib.sh "busybox",["killall","-9",name], (e) ->
+      Lib.running name, (e) ->
+        unless e # console.log  "failed".green
+          fail() if fail?
+        else # console.log  "done".green
+          callback() if callback?
+
+  forkdm : (args,callback) -> 
+    cmd = args.shift()
+    cp.spawn cmd, args, detached : yes
+    Lib.waitproc name : cmd, timeout : 5, done : callback
+
+  readproc : (opts) ->
+    { cmd, args } = opts
+    handler = {}
+    for t in ['exit','err','out','error'] when opts[t]?
+      handler[t] = opts[t]; delete opts[t]
+    if opts.script?
+      s = opts.script; delete opts['script']
+      cmd = 'sh'; args = ['-c',s]
+    if opts.sudo?
+      s = opts.sudo; delete opts['sudo']
+      p = sudo [cmd].concat(args), cachePassword : yes, spawnOptions : env : __env
+    else p = cp.spawn cmd, args, env : __env
+    for t in ['out','err'] when handler[t]?
+      p['std'+t].setEncoding 'utf8'
+      p['std'+t].on 'data', handler[t]
+    if handler.error?
+      error = false; _err = (e) -> error = yes; handler.error e
+      p.on 'error', _err; p.stderr.on 'data', _err
+      p.on 'exit', (status) -> handler.exit(status) unless error
+    else if handler.exit? then p.on 'exit', handler.exit
+    return p
+
+  elevate : (cmd,done) ->
+    x = typeof cmd is 'function'
+    done = cmd if x
+    cmd  = ["echo","ok"] if not cmd? or x
+    done = (->) unless done?
+    e = sudo cmd, cachePassword : yes, spawnOptions : silent : yes
+    e.on 'exit', done

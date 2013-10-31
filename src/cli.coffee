@@ -46,46 +46,116 @@
 
   Davos, Switzerland
   February 8, 1996
+
 ###
 
-global.colors   = require 'colors'
-global.optimist = require 'optimist'
-global.fs       = require 'fs'
-global.ync      = require 'ync'
-global.shell    = require '../node_modules/cerosine/lib/ultrashell.js'
-global._base    = process.env.HOME + '/.irac'
+global.GUI = false
 
-progress = new shell.Shellglyph [
-  '@'.red, '|'.red, '/'.red,
-  '-'.yellow, '\\'.yellow, '-'.yellow,
-  '\\'.green, '-'.green, '/'.green,
-  '@'.green, '[' + 'tor'.green + ']' ]
+require './common'
 
-me  = 'cli'.blue
-Tor = require './tor'
+_me  = 'cli'.blue
+os = require 'os'
+arch = os.arch().toLowerCase()
+type = os.type().toLowerCase()
 
-config_dir = (callback) -> fs.exists _base, (exists) ->
-  if exists then callback()
-  else fs.mkdir _base, (result) ->
-    console.log me, 'created', _base, if result? then result else ''
-    fs.writeFileSync _base + '/nick', nick unless nick is 'anonyomus'
-    callback() if callback?
+class CLSync extends ync.Sync
+  constructor : (opts) ->
+    [ _run, _exec ] = [ @run, @exec ]
+    _widget = (fnc) => =>
+      @widget(); fnc.apply @, arguments
+    @run  = _widget _run
+    @exec = _widget _exec
+    super opts
+  widget : =>
+    console.log '[ ' + @title.yellow + ' ] ' + @current.yellow
 
-nick = optimist.argv.nick || optimist.argv.n || 'anonyomus'
-init = new ync.Sync
-  fork : yes
-  config  : ->
-    config_dir @proceed
-    Tor.readConf()
-  execute : -> switch (cmd = optimist.argv._.shift())
+class CLScript
+  constructor : (cmd,opts={}) ->
+    { @end, @title, @subject } = opts
+    @subject = '' unless @subject?
+    @subject = @subject.blue
+    @title = @title.yellow
+    @end = (->) unless @end?
+    _data = (line) =>
+      line = line.trim()
+      return if line is ''
+      ultra.reset(); ultra.print '[ ' + @title + ' ' + '] ' + @subject + ' [ ' + line.substr(0,100) + ' ] '
+    shell.scriptline cmd, error : _data, line  : _data, end : ( => ultra.commit(); @end() )
+
+switch (cmd = optimist.argv._.shift())
+  when 'devgui'
+    console.log '[', 'starting'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow, _base
+    shell.script """
+      cd "#{require('path').dirname __dirname}"
+      "#{_base}/node-webkit/nw" .
+    """
+  when 'devinit'
+    ultra = new  shell.Ultrashell
+    console.log '[', 'boostrapping'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow,
+      type[if type is 'linux' then 'green' else 'red'] + '[' + arch.grey + ']'
+    url = "https://s3.amazonaws.com/node-webkit/v0.7.5/node-webkit-v0.7.5-#{type}-#{arch}.tar.gz"
+    boostrap = new ync.Sync
+      title : 'boostrap    '
+      download_webkit : -> get = require('https').get url, (res) ->
+        oldline = ''
+        start = (new Date).getTime()
+        length = parseInt res.headers['content-length']
+        got = 0
+        out = fs.createWriteStream(_base + '/node-webkit.tar.gz')
+        res.on 'data', (data) ->
+          now = (new Date).getTime()
+          got += data.length
+          percent = parseInt (got / length * 10).toFixed(0)
+          progress = '##########'.substr(0,percent).green + '          '.substr(0,10-percent)
+          speed = (got / (now - start) / 1024).toFixed(2) + ' mbps'
+          line = '[ ' + 'downloading  '.yellow + '] ' + 'node-webkit '.blue + '[ ' + progress + ' ] '
+          if (line isnt oldline) or (now - last > 0.5)
+            last = now
+            ultra.reset()
+            ultra.print line + ' @ ' + speed
+            oldline = line
+          out.write data
+        res.on 'error', ->
+          console.log 'error downloading'.red, url
+          process.exit 1
+        res.on 'end', -> boostrap.proceed ultra.commit()
+
+      install_webkit : -> new CLScript """
+          cd #{_base} || exit 1
+          rm -rf node-webkit
+          tar xzvf node-webkit.tar.gz
+          mv node-webkit-v0.7.5-#{type}-#{arch} node-webkit
+          echo ok
+        """, title : 'installing  ', subject : 'node-webkit', end : boostrap.proceed
+
+      install_nwgyp : -> new CLScript """
+          npm install nw-gyp
+          echo ok
+        """, title : 'installing  ', subject : 'nwgyp', end : boostrap.proceed
+
+      rebuild_buffertools : ->
+        path = require.resolve('buffertools').split '/'
+        path.pop()
+        path = path.join '/'
+        new CLScript """
+          cd #{_base} || exit 1
+          cp -r "#{path}" ./node-webkit
+          cd ./node-webkit/buffertools
+          nw-gyp rebuild --target=0.7.5
+          echo ok
+        """, title : 'rebuilding  ', subject : 'buffertools', end : boostrap.proceed
+      done : -> process.exit 0
+
+  else Kreem.init -> switch cmd
+    when 'name'    then console.log Settings.name, 33023
     when 'port'    then console.log Tor.port, 33023
     when 'key'     then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
-    when 'id'      then console.log [ nick + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
+    when 'id'      then console.log [ Settings.name + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
     when 'tor'     then Tor.start (->)
     else Tor.start ->
       require('./kreem').listen
         addr   : '0.0.0.0'
         port   : optimist.argv.port || 33023
-        nick   : nick
+        nick   : Settings.name
         pubkey : 'lolcats'
