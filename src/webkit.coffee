@@ -106,8 +106,10 @@ Kreem.init ->
     Dialog.frame = $('#dialogs')
 
     update_profile = ->
-      $('#profile > .nick').html Settings.name
-      $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
+      setTimeout ( ->
+        $('#profile > .nick').html Settings.name
+        $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
+      ), 1000
     update_profile()
 
     # Recorder (logo button)
@@ -135,14 +137,20 @@ Kreem.init ->
       btn :
         cancel  : title : 'Cancel', click : -> @toggle()
         default : title : 'Save',   click : ->
+          copy = (src,dst,cb) ->
+            rd = fs.createReadStream(src)
+            wr = fs.createWriteStream(dst)
+            wr.on 'close', cb
+            rd.pipe(wr)
           Settings.name = @$.find('#nick').val()
           files = @$.find('input[type="file"]')[0].files
-          ext = files[0].path.split('.').pop()
-          copy = (src,dst) -> fs.createReadStream(src).pipe(fs.createWriteStream(dst))
-          copy files[0].path, path = _base + "/avatar.#{ext}"
-          Settings.avatarPath = path
-          update_profile()
-          Settings.save(); @toggle()
+          ext   = files[0].path.split('.').pop()
+          path  = "#{_base}/avatar.#{ext}"
+          copy files[0].path, path, =>
+            Settings.avatarPath = path
+            Settings.save =>
+              @toggle()
+              update_profile()
     add = $('#settings').on 'click', -> settings.toggle()
 
     # 'Upload' Dialog
