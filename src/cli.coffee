@@ -96,6 +96,7 @@ switch (cmd = optimist.argv._.shift())
     url = "https://s3.amazonaws.com/node-webkit/v0.7.5/node-webkit-v0.7.5-#{type}-#{arch}.tar.gz"
     boostrap = new ync.Sync
       title : 'boostrap    '
+
       download_webkit : -> get = require('https').get url, (res) ->
         oldline = ''
         start = (new Date).getTime()
@@ -128,10 +129,22 @@ switch (cmd = optimist.argv._.shift())
           echo ok
         """, title : 'installing  ', subject : 'node-webkit', end : boostrap.proceed
 
+      webkit_linux_workaround : -> new CLScript """
+        f="/lib/x86_64-linux-gnu/libudev.so.1"
+        test -f  "$f" && {
+          ln -sf "$f" #{_base}/node-webkit/libudev.so.0 && echo ok || echo failed
+        } || echo 'n/a'
+        """, title : 'working_around  ', subject : 'node-webkit', end : boostrap.proceed
+
       install_nwgyp : -> new CLScript """
-          npm install nw-gyp
+          sudo npm install -g nw-gyp
           echo ok
         """, title : 'installing  ', subject : 'nwgyp', end : boostrap.proceed
+
+      install_opus : -> new CLScript """
+          sudo apt-get install opus-tools build-essential
+          echo ok
+        """, title : 'installing  ', subject : 'opus, devtools', end : boostrap.proceed
 
       rebuild_buffertools : ->
         path = require.resolve('buffertools').split '/'
