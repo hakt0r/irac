@@ -87,7 +87,7 @@ switch (cmd = optimist.argv._.shift())
     console.log '[', 'starting'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow, _base
     shell.script """
       cd "#{require('path').dirname __dirname}"
-      "#{_base}/node-webkit/nw" .
+      LD_LIBRARY_PATH=#{_base}/node-webkit:$LD_LIBRARY_PATH "#{_base}/node-webkit/nw" .
     """
   when 'devinit'
     ultra = new  shell.Ultrashell
