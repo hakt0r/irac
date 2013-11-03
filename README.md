@@ -3,6 +3,8 @@ Built with nodejs upon Tor, TLS/SSL and OTR-Messaging,
 irac is supposed to give you a peer-to-peer (audio-) chat solution that is
 easy to set-up and easy to use.
 
+Similtar to [TorChat] (https://github.com/prof7bit/TorChat).
+
 ### Installation
     $ sudo npm install irac (TODO: publish when ready ;)
     $ sudo npm install git://github.com/hakt0r/irac.git
