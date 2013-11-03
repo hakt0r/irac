@@ -1,55 +1,58 @@
+###
+ 
+  | irac |
+
+    2010-2013 [GPL] / version 0.9 - kreem
+    github.com/hakt0r/irac 
+
+    anx    [ ulzq.de ] 2010-2013
+    flyc0r [ ulzq.de ] 2010,2013
+
+###
+
+_me = 'env'.blue
+
 require 'coffee-script'
 
-class Storable
-  constructor : (@path, @defaults) ->
-  read : (callback) =>
-    _read = (inp) =>
-      inp = {} unless inp?
-      inp[k] = v for k,v of @defaults when not inp[k]?
-      @[k] = v for k,v of inp
-      callback inp if callback?
-    fs.readFile @path, (err, data) =>
-      try _read JSON.parse data.toString('utf8')
-      catch e
-        console.error e
-        _read {}
-    null
-  save : (callback) =>
-    out = {}
-    out[k] = v for k,v of @ when typeof v isnt 'function' and k isnt 'path' and k isnt 'defaults'
-    fs.writeFile @path, JSON.stringify(out), callback
-    null
+global.EventEmitter = EventEmitter = require('events').EventEmitter
+global.colors       = colors       = require 'colors'
+global.fs           = fs           = require 'fs'
+global.cp           = cp           = require 'child_process'
+global.ync          = ync          = require 'ync'
+global.optimist     = optimist     = require 'optimist'
+global.crypto       = crypto       = require 'crypto'
 
-global._base    = _base    = process.env.HOME + '/.irac'
-global.Settings = Settings = new Storable _base + '/user.json', name : 'anonymous'
-global.Storable = Storable
-global.colors   = colors   = require 'colors'
-global.optimist = optimist = require 'optimist'
-global.fs       = fs       = require 'fs'
-global.ync      = ync      = require 'ync'
-global.shell    = shell    = require './ultrashell'
-global.Tor      = Tor      = require('./tor')
-global.Kreem    = Kreem    = require('./kreem')
-global.sha512   = sha512   = require './sha512'
-global.Player   = Player   = Kreem.Player
-global.Recorder = Recorder = Kreem.Recorder
-global.Stream   = Stream   = Kreem.Stream
-global.Peer     = Peer     = Kreem.Peer
+global.sha512 = sha512 = (str) ->
+  h = crypto.createHash 'sha512'
+  h.update str
+  h.digest 'hex'
 
-require if global.GUI then _base + '/node-webkit/buffertools/buffertools' else 'buffertools'
+global.md5 = md5 = (str) ->
+  h = crypto.createHash 'md5'
+  h.update str
+  h.digest 'hex'
 
-config_dir = (callback) -> fs.exists _base, (exists) ->
-  if exists then callback()
-  else fs.mkdir _base, (result) ->
-    console.log _me, 'created', _base, if result? then result else ''
-    callback() if callback?
+optimist.argv = argv = optimist.parse global.gui.App.argv if global.GUI
+global._base = _base = optimist.argv.config || ( process.env.HOME + '/.irac' )
 
-Kreem.init = (callback) -> new ync.Sync
-  config_dir    : -> config_dir    @proceed
-  read_settings : -> Settings.read @proceed
-  #log_settings : ->
-  #  console.log "CO_base:", _base
-  #  console.log Settings; @proceed()
-  ready : callback
+global.Storable = Storable  = require './storable'
+global.Settings = Settings  = new Storable _base + '/user.json',
+  defaults : name : 'anonymous', port : 33023, torport : 9051
+  override : argv
 
-Settings.nick = optimist.argv.nick if optimist.argv.nick?
+global.OTR = OTR = if global.GUI
+    require _base + '/node-webkit/buffertools'
+    require _base + '/node-webkit/otr4'
+  else
+    require 'buffertools'
+    require 'otr4'
+
+global.Kreem     = Kreem     = new EventEmitter
+global.shell     = shell     = require './ultrashell'
+global.Tor       = Tor       = require './tor'
+global.Peer      = Peer      = require './peer'
+global.Stream    = Stream    = require './stream'
+global.Audio     = Audio     = require './audio'
+global.Player    = Player    = Audio.Player
+global.Recorder  = Recorder  = Audio.Recorder
+Kreem[k] = v        for k,v of require './kreem'

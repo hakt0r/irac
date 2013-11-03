@@ -52,11 +52,13 @@
 global.GUI = false
 
 require './common'
-
-_me  = 'cli'.blue
-os = require 'os'
-arch = os.arch().toLowerCase()
-type = os.type().toLowerCase()
+_me   = 'cli'.blue
+os    = require 'os'
+arch  = os.arch().toLowerCase()
+type  = os.type().toLowerCase()
+shell = global.shell
+ultra = new shell.Ultrashell
+Kreem = global.Kreem
 
 class CLSync extends ync.Sync
   constructor : (opts) ->
@@ -85,12 +87,16 @@ class CLScript
 switch (cmd = optimist.argv._.shift())
   when 'devgui'
     console.log '[', 'starting'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow, _base
+    args = ''; for k,v of optimist.argv
+      continue if k is '$0' or k is '_'
+      args += """ --#{k}='#{v}'"""
+    console.log args
     shell.script """
       cd "#{require('path').dirname __dirname}"
-      LD_LIBRARY_PATH=#{_base}/node-webkit:$LD_LIBRARY_PATH "#{_base}/node-webkit/nw" .
+      LD_LIBRARY_PATH=#{_base}/node-webkit:$LD_LIBRARY_PATH \\
+        "#{_base}/node-webkit/nw" . #{args}
     """
-  when 'devinit'
-    ultra = new  shell.Ultrashell
+  when 'devinit' then Kreem.init ->
     console.log '[', 'boostrapping'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow,
       type[if type is 'linux' then 'green' else 'red'] + '[' + arch.grey + ']'
     url = "https://s3.amazonaws.com/node-webkit/v0.7.5/node-webkit-v0.7.5-#{type}-#{arch}.tar.gz"
@@ -134,15 +140,15 @@ switch (cmd = optimist.argv._.shift())
         test -f  "$f" && {
           ln -sf "$f" #{_base}/node-webkit/libudev.so.0 && echo ok || echo failed
         } || echo 'n/a'
-        """, title : 'working_around  ', subject : 'node-webkit', end : boostrap.proceed
+        """, title : 'workaround  ', subject : 'node-webkit', end : boostrap.proceed
 
       install_nwgyp : -> new CLScript """
           sudo npm install -g nw-gyp
           echo ok
         """, title : 'installing  ', subject : 'nwgyp', end : boostrap.proceed
 
-      install_opus : -> new CLScript """
-          sudo apt-get install opus-tools build-essential
+      install_devtools : -> new CLScript """
+          sudo apt-get install opus-tools build-essential make awk g++ nodejs nodejs-dev libotr5 libotr5-dev
           echo ok
         """, title : 'installing  ', subject : 'opus, devtools', end : boostrap.proceed
 
@@ -157,6 +163,19 @@ switch (cmd = optimist.argv._.shift())
           nw-gyp rebuild --target=0.7.5
           echo ok
         """, title : 'rebuilding  ', subject : 'buffertools', end : boostrap.proceed
+
+      rebuild_otr4 : ->
+        path = require.resolve('otr4').split '/'
+        path.pop()
+        path = path.join '/'
+        new CLScript """
+          cd #{_base} || exit 1
+          cp -r "#{path}" ./node-webkit
+          cd ./node-webkit/otr4
+          nw-gyp rebuild --target=0.7.5
+          echo ok
+        """, title : 'rebuilding  ', subject : 'otr4', end : boostrap.proceed
+
       done : -> process.exit 0
 
   else Kreem.init -> switch cmd
@@ -165,10 +184,5 @@ switch (cmd = optimist.argv._.shift())
     when 'key'     then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
     when 'id'      then console.log [ Settings.name + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
-    when 'tor'     then Tor.start (->)
-    else Tor.start ->
-      require('./kreem').listen
-        addr   : '0.0.0.0'
-        port   : optimist.argv.port || 33023
-        nick   : Settings.name
-        pubkey : 'lolcats'
+    when 'tor'     then reqiure('./tor').start (->)
+    else Kreem.listen()
