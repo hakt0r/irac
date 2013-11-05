@@ -1,6 +1,6 @@
 #!/bin/sh
 tickr "\
-	killall -9 tor node nw nodejs;\
+	killall -9 nw;\
 	sh scripts/make; node js/irac devgui 2>&1&\
 	sh scripts/make; node js/irac devgui --config=/home/anx/.irac_test --port=23024 --torport=9052 --name=durandal 2>&1&\
 	echo\
