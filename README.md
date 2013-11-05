@@ -1,4 +1,7 @@
 ## irac - a p2p instant messanger for tor
+
+![irac logo](https://raw.github.com/hakt0r/irac/master/img/logo.png)
+
 Built with nodejs upon Tor, TLS/SSL and OTR-Messaging,
 irac is supposed to give you a peer-to-peer (audio-) chat solution that is
 easy to set-up and easy to use.
