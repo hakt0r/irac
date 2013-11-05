@@ -61,10 +61,10 @@ IRAC =
     socket.write IRAC.otr + data + IRAC.end
 
   sockfail : (socket, reason) -> (err) ->
-    socket.end()
-    delete IRAC.byId[socket.info.id]
     console.log reason.magenta
-    # api.emit reason, socket, err
+    api.emit reason, socket, err
+    delete IRAC.byId[socket.info.id]
+    socket.end()
 
 new_connection = (err, socket, opts) -> unless err
 
@@ -94,7 +94,7 @@ new_connection = (err, socket, opts) -> unless err
     IRAC.sockfail(socket,'protocol_error') 'Malformed Handshake' unless type is IRAC.ini
     protocol.frmhandler = iracctlp
     msg = data.toString('utf8').split ':'
-    info.name = msg[0]; info.onion = msg[1]; info.port = msg[2]; 
+    info.name = msg[0]; info.onion = msg[1]+':'+msg[2]; 
     # Set up OTR
     info.otr.ctx = ctx = User.ConnContext(Settings.name, "irac", info.name)
     info.otr.ses = ses = new OTR.Session User, ctx, policy: OTR.POLICY("ALWAYS ALLOW_V3 REQUIRE_ENCRYPTION"), MTU : 5000
@@ -164,8 +164,10 @@ listen = (callback) -> Tor.start ->
   api.emit 'init.listen'
   connect_self()
   _try = (k) ->
-    connect k, null, (success) -> unless success
-      setTimeout ( -> _try k ), Settings.reconnect_interval
+    connect k, null, (success) ->
+      if success
+        setTimeout ( -> _try k ), Settings.reconnect_interval
+      false
   _try k for k,v of Settings.buddy
   callback() if callback?
   null
@@ -179,12 +181,13 @@ connect = (host='127.0.0.1',port=33023, callback) ->
   ( [ host, port ] = host.split ':'; port = parseInt port ) if host.indexOf(':') > 0
   console.log ['connecting', host, port, Settings.torport].join ' '
   host = host + '.onion' unless host.match 'onion$'
+  onion = host.replace(/.onion$/,'')+(if port isnt 33023 then ':' + port else '')
   remote_options = host: host, port: port, ssl : yes
   socks_options  = host: "127.0.0.1", port: Settings.torport
   socket = new socksjs remote_options, socks_options
   socket.on 'connect', (err) ->
-    return if callback false, socket if callback?
-    new_connection err, socket, onion : host, port : port
+    return if callback? and callback false, socket
+    new_connection err, socket, onion : onion, port : port
   socket.on 'error', ->
     callback true if callback?
     console.log host
@@ -213,7 +216,9 @@ connect_self = (callback) ->
         api.emit 'test.callmyself.success'
         socket.end()
         callback true if callback?
-  _try api.emit 'test.callmyself'
+      true
+  api.emit 'test.callmyself'
+  _try()
 
 ###
   The Mighty init sync

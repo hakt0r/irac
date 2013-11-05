@@ -48,6 +48,8 @@ $(document).ready ->
   Recorder.on 'stop',  -> ptt.removeClass 'down'
 
   # 'Add Buddy' Dialog
+  Buddys  = $ '#buddys'
+
   addBuddy = new Dialog
     id : 'addBuddy'
     form : buddyAddress : type : eMail, title : 'Buddy Address', value : 'localhost:33023'
@@ -59,6 +61,15 @@ $(document).ready ->
         Settings.save()
         @toggle()
   add = $('#add').on 'click', -> addBuddy.toggle()
+
+  api.on 'connection', (info) ->
+    Buddys.find("""span[data-onion="#{info.onion}"]""").removeClass 'offline'
+    History.prepend """
+      <div class="message" data-onion="#{info.onion}">
+        <img  class="avatar" src="img/anonymous.svg" />
+        <span class="nick">#{info.name}</span>
+        <span class="text">(connected)</span>
+      </div>"""
 
   # 'Upload' Dialog
   upload = new Dialog
@@ -73,7 +84,6 @@ $(document).ready ->
 
   # Handle api's events
   History = $ '#history'
-  Buddys  = $ '#buddys'
 
   api.on 'error', console.error
 
@@ -153,14 +163,6 @@ $(document).ready ->
   hookstate k,v for k,v of state
 
   api.on 'tor.log', (args...) -> console.debug args.join ' '
-
-  api.on 'connection', (info) ->
-    History.prepend """
-      <div class="message" data-onion="#{info.onion}">
-        <img  class="avatar" src="img/anonymous.svg" />
-        <span class="nick">#{info.name}</span>
-        <span class="text">(connected)</span>
-      </div>"""
 
   api.on 'message', (info, message) -> History.prepend """
     <div class="message" data-onion="#{info.onion}">
