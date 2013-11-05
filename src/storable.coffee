@@ -1,4 +1,5 @@
-fs = require 'fs'
+
+{ fs } = ( api = global.api )
 
 module.exports = class Storable
   constructor : (@path, opts={}) ->
@@ -11,7 +12,6 @@ module.exports = class Storable
         inp[k] = v for k,v of @defaults when not inp[k]?
         inp[k] = v for k,v of @defaults when typeof v is 'Number' and typeof inp[k] isnt 'Number'
       inp[k] = v for k,v of @override if @override?
-      console.debug inp, @override, @defaults
       @override = null
       @[k] = v for k,v of inp
       callback inp if callback?

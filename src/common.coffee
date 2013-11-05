@@ -10,49 +10,71 @@
 
 ###
 
-_me = 'env'.blue
+module.exports = (opts={}) ->
+  require 'coffee-script'
 
-require 'coffee-script'
+  # Create the api Object
+  EventEmitter = require('events').EventEmitter
+  global.api = api = new EventEmitter
+  api.EventEmitter = EventEmitter
+  api[k] = v for k,v of opts
 
-global.EventEmitter = EventEmitter = require('events').EventEmitter
-global.colors       = colors       = require 'colors'
-global.fs           = fs           = require 'fs'
-global.cp           = cp           = require 'child_process'
-global.ync          = ync          = require 'ync'
-global.optimist     = optimist     = require 'optimist'
-global.crypto       = crypto       = require 'crypto'
+  api.optimist = optimist = require 'optimist'
 
-global.sha512 = sha512 = (str) ->
-  h = crypto.createHash 'sha512'
-  h.update str
-  h.digest 'hex'
+  # Check out the environment
+  api.os = os = require 'os'
+  os.arch = os.arch().toLowerCase() # TOTHINK: overcache, consider maybe not
+  os.type = os.type().toLowerCase() # TOTHINK: overcache, consider maybe not
 
-global.md5 = md5 = (str) ->
-  h = crypto.createHash 'md5'
-  h.update str
-  h.digest 'hex'
+  # Library exports, node-webkit is the reason for using the global.api scope
+  api.fs = fs = require 'fs'
+  api.colors  = require 'colors'
+  api.cp      = require 'child_process'
+  api.ync     = require '../../ync/src/ync'
 
-optimist.argv = argv = optimist.parse global.gui.App.argv if global.GUI
-global._base = _base = optimist.argv.config || ( process.env.HOME + '/.irac' )
+  # Quick crypto functions {everyday hashes}
+  api.crypto = crypto = require 'crypto'
 
-global.Storable = Storable  = require './storable'
-global.Settings = Settings  = new Storable _base + '/user.json',
-  defaults : name : 'anonymous', port : 33023, torport : 9051
-  override : argv
+  api.sha512 = (str) ->
+    h = crypto.createHash 'sha512'
+    h.update str
+    h.digest 'hex'
 
-global.OTR = OTR = if global.GUI
-    require _base + '/node-webkit/buffertools'
-    require _base + '/node-webkit/otr4'
-  else
-    require 'buffertools'
-    require 'otr4'
+  api.md5 = (str) ->
+    h = crypto.createHash 'md5'
+    h.update str
+    h.digest 'hex'
 
-global.Kreem     = Kreem     = new EventEmitter
-global.shell     = shell     = require './ultrashell'
-global.Tor       = Tor       = require './tor'
-global.Peer      = Peer      = require './peer'
-global.Stream    = Stream    = require './stream'
-global.Audio     = Audio     = require './audio'
-global.Player    = Player    = Audio.Player
-global.Recorder  = Recorder  = Audio.Recorder
-Kreem[k] = v        for k,v of require './kreem'
+  api.mkdir = (dir,callback=null) ->
+    fs.exists dir, (exists) -> if exists then callback false else fs.mkdir dir, callback
+
+  # Setup DOTDIR path
+  DOTDIR = null; _dotdir = ->
+    api.DOTDIR = DOTDIR = optimist.argv.config || ( process.env.HOME + '/.irac' )
+
+  # Handle node-webit vs. nodejs [modules] and [argv] respectively
+  api.OTR = OTR = if api.GUI
+      optimist.argv = argv = optimist.parse api.gui.App.argv
+      _dotdir()
+      require DOTDIR + '/node-webkit/buffertools' # load buffertools
+      require DOTDIR + '/node-webkit/otr4' # return otr object
+    else
+      _dotdir()
+      require 'buffertools' # load buffertools
+      require 'otr4'  # return otr object
+
+  # Initialize Settings object 
+  api.Storable = Storable = require './storable'
+  api.Settings = Settings = new Storable DOTDIR + '/user.json',
+    defaults : name : 'anonymous', port : 33023, torport : 9051, reconnect_interval : 5000
+    override : argv
+  Settings.buddy = {} unless Settings.buddy?
+
+  # Load core modules
+  api.shell  = shell  = require './ultrashell'
+  api.ultra  = ultra  = new shell.Ultrashell
+  api.Tor    = Tor    = require './tor'
+  api[k] = v for k,v of require './audio'
+  api[k] = v for k,v of require './kreem'
+
+  

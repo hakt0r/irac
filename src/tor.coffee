@@ -10,13 +10,14 @@
 
 ###
 
-{ cp, fs, Settings, Kreem } = global
+{ DOTDIR, cp, fs, Settings, shell, ync } = ( api = global.api )
 
 portfinder = require 'portfinder'
+
 module.exports = class Tor
   @running : no
-  @readOnion : -> try fs.readFileSync(_base+'/hostname').toString('utf8').trim()
-  @readKey   : -> try fs.readFileSync(_base+'/private_key').toString('utf8').trim()
+  @readOnion : -> try fs.readFileSync(DOTDIR+'/hostname').toString('utf8').trim()
+  @readKey   : -> try fs.readFileSync(DOTDIR+'/private_key').toString('utf8').trim()
 
   @readConf : ->
     Settings.onion   = Tor.readOnion().replace /.onion$/, ''
@@ -26,7 +27,7 @@ module.exports = class Tor
       fork : yes
 
       checkport : ->
-        Kreem.emit 'tor.checkport'
+        api.emit 'tor.checkport'
         portfinder.basePort = Settings.torport
         portfinder.getPort (err,port) ->
           if port isnt portfinder.basePort
@@ -36,27 +37,28 @@ module.exports = class Tor
           else startup.proceed()
 
       config : =>
-        Kreem.emit 'tor.updaterc'
-        console.log 'tor'.grey, 'update' + _base + '/torrc'
-        fs.writeFile _base + '/torrc', Tor.makerc(), startup.proceed
+        api.emit 'tor.updaterc'
+        console.log 'tor'.grey, 'update' + DOTDIR + '/torrc'
+        fs.writeFile DOTDIR + '/torrc', Tor.makerc(), startup.proceed
 
       start  : ->
-        Kreem.emit 'tor.start'
-        cmd = 'tor -f '+_base+'/torrc --pidfile "' + _base + '/tor/tor.pid"'
+        api.emit 'tor.start'
+        cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
         console.log 'tor'.grey, 'running', cmd
         shell.readlines cmd,
           line : (line) ->
-            Kreem.emit 'tor.log', line
+            line = line.trim()
+            api.emit 'tor.log', line unless line is ''
             startup.proceed() if line.match /Tor has successfully opened a circuit/
 
       ready : ->
         Tor.readConf()
         callback() if callback?
-        Kreem.emit 'tor.ready'
+        api.emit 'tor.ready'
 
   @makerc : -> """
-      DataDirectory #{_base}/tor
+      DataDirectory #{DOTDIR}/tor
       SocksPort #{Settings.torport}
-      HiddenServiceDir  #{_base}
+      HiddenServiceDir  #{DOTDIR}
       HiddenServicePort #{Settings.port} 127.0.0.1:#{Settings.port}
     """

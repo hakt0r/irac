@@ -10,11 +10,11 @@
 
 ###
 
-cp       = require 'child_process'
-sudo     = require 'sudo'
-net      = require 'net'
-util     = require 'util'
-colors   = require 'colors'
+cp     = require 'child_process'
+sudo   = require 'sudo'
+net    = require 'net'
+util   = require 'util'
+colors = require 'colors'
 
 __env = process.env
 __env.LANG = 'C'

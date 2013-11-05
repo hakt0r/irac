@@ -10,28 +10,16 @@
 
 ###
 
-global.$ = $
-global.GUI = true
-global.gui = require 'nw.gui'
+colors = require 'colors'
+require('./js/common') { $ : $, GUI : true, gui : require 'nw.gui' }
 
-require './js/common'
+{ GUI, DOTDIR, connect, gui, optimist, fs, ync, shell, Tor, Player, Recorder, Settings } = ( api = global.api )
 
-{ _base, gui, colors, optimist, fs, ync, shell, Tor, Kreem, Player, Recorder, Stream, Settings, Peer } = global
+api.cerosine = cerosine = require './js/cerosine'
 
-global.cerosine = cerosine = require './js/cerosine'
-Text     = cerosine.Text
-eMail    = cerosine.eMail
-Field    = cerosine.Field
-Dialog   = cerosine.Dialog
-Button   = cerosine.Button
-Password = cerosine.Password
-File     = cerosine.File
-Numeric  = cerosine.Numeric
-Progress = cerosine.Progress
+{ Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
 
-console.log '[', 'gui'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow, _base
-
-console.log "WK_base:", _base
+console.log '[ gui ] irac/v0.9-kreem', DOTDIR
 
 tray = new gui.Tray
   title : 'irac'
@@ -45,16 +33,14 @@ menu.append new gui.MenuItem type:  'separator'
 menu.append new gui.MenuItem label: 'Quit', click : -> process.exit(0)
 tray.menu = menu
 
-Kreem.init -> Kreem.listen()
+update_profile = ->
+  $('#profile > .nick').html Settings.name
+  $('#profile > .address').html Settings.onion + ':' + Settings.port
+  $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
+
 
 $(document).ready ->
-  $('body').append '<div id="dialogs"></div>'
-  Dialog.frame = $('#dialogs')
-
-  update_profile = ->
-    $('#profile > .nick').html Settings.name
-    $('#profile > .address').html Settings.onion + ':' + Settings.port
-    $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
+  api.init api.listen
 
   # Recorder (logo button)
   ptt = $('#logo').on 'click', -> Recorder.toggle()
@@ -68,7 +54,9 @@ $(document).ready ->
     btn :
       cancel  : title : 'Cancel',    click : -> @toggle()
       default : title : 'Add Buddy', click : ->
-        Kreem.connect_raw addBuddy.$.find("input").val()
+        api.connect addr = addBuddy.$.find("input").val()
+        Settings.buddy[addr] = {}
+        Settings.save()
         @toggle()
   add = $('#add').on 'click', -> addBuddy.toggle()
 
@@ -83,17 +71,53 @@ $(document).ready ->
       default : title : 'Save',   click : ->
   add = $('#upload').on 'click', -> upload.toggle()
 
-  # Handle Kreem's events
+  # Handle api's events
   History = $ '#history'
   Buddys  = $ '#buddys'
 
-  init_progress = new Progress title : 'Connecting', frame : History
-  # Kreem.on 'tor.log', (line) -> console.log line 
-  #Kreem.on 'init.confdir', -> init_progress.value 5
+  api.on 'error', console.error
 
-  Kreem.on 'init.readconf', ->
-    init_progress.value 10
+  api.on 'init.firsttimesetup', (callback) -> firsttimesetup = new Dialog
+    id : 'firsttimesetup'
+    show : yes
+    form :
+      nick    : type : Text, value: Settings.name,    title : 'Nickname (public pseudonym)'
+      avatar  : type : File, title : 'Avatar'
+      port    : type : Numeric, value: Settings.port,    title : 'irac Port (33023)'
+      torport : type : Numeric, value: Settings.torport, title : 'tor proxy Port (9051)'
+      onion   : type : Text,    value: '', title : 'irac-id     (optional)'
+      privkey : type : Text,    value: '', title : 'Private key (optional)'
+      cert    : type : Text,    value: '', title : 'Certificate (optional)'
+    btn :
+      cancel  : title : 'Cancel', click : -> process.exit 1
+      default : title : 'Save',   click : ->
+        Settings.ssl      = {} unless Settings.ssl?
+        Settings.name     = @$.find('#nick').val()
+        Settings.onion    = val unless (val = @$.find('#torport').val()) isnt ''
+        Settings.port     = parseInt @$.find('#port').val()
+        Settings.torport  = parseInt @$.find('#torport').val()
+        Settings.ssl.key  = val unless (val = @$.find('#torport').val()) isnt ''
+        Settings.ssl.cert = val unless (val = @$.find('#torport').val()) isnt ''
+        files = @$.find('input[type="file"]')[0].files
+        Settings.avatarPath = files[0].path if files.length > 0
+        Settings.save => @close null, update_profile()
+
+  init_progress = new Progress title : 'Connecting to network...', frame : History
+  # api.on 'tor.log', (line) -> console.log line 
+  #api.on 'init.confdir', -> init_progress.value 5
+
+  api.on 'init.readconf', ->
+    init_progress.value 10, 'init.readconf'
+
     update_profile()
+
+    for k,v of Settings.buddy
+      Buddys.append """
+        <span class="buddy offline" data-onion="#{k}">
+          <img  class="avatar" src="img/anonymous.svg" />
+          <span class="nick">#{k}</span>
+        </span>"""
+
     # 'Settings' Dialog
     settings = new Dialog
       id : 'settings'
@@ -110,37 +134,42 @@ $(document).ready ->
           Settings.name    = @$.find('#nick').val()
           Settings.port    = parseInt @$.find('#port').val()
           Settings.torport = parseInt @$.find('#torport').val()
-          debugger
           files = @$.find('input[type="file"]')[0].files
           Settings.avatarPath = files[0].path if files.length > 0
           Settings.save => @toggle null, update_profile()
     add = $('#settings').on 'click', -> settings.toggle()
 
-  Kreem.on 'error', ->
-  Kreem.on 'init.otr', -> init_progress.value 10
-  Kreem.on 'init.otr.done', -> init_progress.value 15
-  Kreem.on 'tor.checkport', -> init_progress.value 22
-  Kreem.on 'tor.updaterc', -> init_progress.value 24
-  Kreem.on 'tor.start', -> init_progress.value 26
-  Kreem.on 'tor.log', -> init_progress.value 28
-  Kreem.on 'tor.ready', -> init_progress.value 30
-  Kreem.on 'init.listen', -> init_progress.value 100
-  #Kreem.on 'test.callmyself', -> init_progress.value 50
-  #Kreem.on 'test.callmyself.success', -> init_progress.value 70
+  state = # hehe
+   'init.otr' : 10
+   'init.otr.done' : 15
+   'tor.checkport' : 22
+   'tor.updaterc' : 24
+   'tor.start' : 26
+   'tor.ready' : 30
+   'init.listen' : 40
+   'test.callmyself' : 50
+   'test.callmyself.success' : 100
+  hookstate = (k,v) -> api.on k, -> init_progress.value v,k
+  hookstate k,v for k,v of state
 
-  Kreem.on 'connection', (info) ->
+  api.on 'tor.log', (args...) -> console.debug args.join ' '
+
+  api.on 'connection', (info) ->
     History.prepend """
       <div class="message" data-onion="#{info.onion}">
         <img  class="avatar" src="img/anonymous.svg" />
         <span class="nick">#{info.name}</span>
         <span class="text">(connected)</span>
       </div>"""
-    Buddys.append """
-      <span class="buddy" data-onion="#{info.onion}">
-        <img  class="avatar" src="img/anonymous.svg" />
-        <span class="nick">#{info.name}</span>
-      </span>"""
-  Kreem.on 'message', (info, message) -> History.prepend """
+
+  api.on 'message', (info, message) -> History.prepend """
+    <div class="message" data-onion="#{info.onion}">
+      <img  class="avatar" src="img/anonymous.svg" />
+      <span class="nick">#{info.name}</span>
+      <span class="text">#{message}</span>
+    </div>"""
+
+  api.on 'stream', (id, mime) -> History.prepend """
     <div class="message" data-onion="#{info.onion}">
       <img  class="avatar" src="img/anonymous.svg" />
       <span class="nick">#{info.name}</span>

@@ -10,13 +10,14 @@
 
 ###
 
-cp = global.cp
-EventEmitter = global.EventEmitter
+{ DOTDIR, cp, fs, EventEmitter } = ( api = global.api )
 
 class HackyPlayer extends EventEmitter
-  stream : {}
+  queue : {}
   playing : no
   play : (item) =>
+    item.decoder = create item.mime
+    return unless item.decoder?
     @playing = yes
     read = fs.createReadStream item.path, start : item.offset
     console.log 'playing'.red + ' ' + item.path if item.offset is 0 
@@ -26,39 +27,29 @@ class HackyPlayer extends EventEmitter
     read.on 'end', (status,error) =>
       @playing = no
       item.buffer = 0
-  create : (id, mime) =>
-    console.log 'new_stream', id
-    p = _base + '/tmp/' + id
-    w = fs.createWriteStream p
-    @stream[id] = s =
-      id:id
-      path:p
-      file:w
-      buffer:0
-      offset:0
-      decoder:cp.spawn('padsp',['opusdec','-'],stdio:['pipe','ignore','ignore'])
-  frame : (id, msg) =>
-    (s = @stream[id]).file.write msg
-    @play s unless @playing
+  create : (mime) => switch mime
+    when 'audio/opus'
+      cp.spawn('padsp',['opusdec','-'],stdio:['pipe','ignore','ignore'])
+    else undefined
 
 class HackyRecorder extends EventEmitter
   running : no
   toggle : => if @running then @stop() else @start()
   start  : =>
     return if @running
-    @running = yes
-    stream = new Stream mime : 'audio/opus'
+    feed = api.IRAC.announce 'audio/opus'
     @record = cp.spawn 'arecord',['-c','1','-r','48000','-twav','-'],stdio:['pipe','pipe','ignore']
     encode  = cp.spawn 'opusenc',['--ignorelength','--bitrate','96','-','-'],stdio:['pipe','pipe','ignore']
     @record.stdout.pipe encode.stdin
-    encode.stdout.on 'data', stream.feed
+    encode.stdout.on 'data', feed
+    @running = yes
     @emit 'start'
   stop : =>
     return unless @running
     @running = no
-    @record.kill('SIGTERM')
+    @record.kill('SIGQUIT')
     @emit 'stop'
 
 module.exports =
   Recorder : new HackyRecorder
-  Player   : new HackyPlayer
+  Player : new HackyPlayer

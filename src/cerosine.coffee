@@ -10,7 +10,7 @@
 
 ###
 
-$ = global.$
+{ $ } = ( api = global.api )
 
 class Dialog
   hidden : yes
@@ -49,27 +49,28 @@ class Dialog
     @outer.fadeOut c; @hidden = true 
   toggle : (c) => if @hidden then @show c else @hide c
 
+$().ready ->
+  $('body').append '<div id="dialogs"></div>'
+  Dialog.frame = $('#dialogs')
+
 class Progress
   constructor : (opts={}) ->
-    { @id, @title, @frame, val, click } = opts
+    { @id, @title, @frame, @description, val, click } = opts
     @title = @id unless @title?
     val = 0 unless val?
     @frame.prepend """
       <div class="notify-progress">
-        <div class="progress active">
-          <div class="progress-bar"  role="progressbar" aria-valuenow="#{val}" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
-            <span class="sr-only">0%</span>
-          </div>
-        </div>
+        <h4>#{@title} <b>#{@description}</b></h4>
+        <div class="progress active"><div class="progress-bar"  role="progressbar" aria-valuenow="#{val}" aria-valuemin="0" aria-valuemax="100" style="width: 0%"><span class="sr-only">0%</span></div></div>
       </div>"""
     @$   = $ @frame.find('> div').toArray().pop()
     @bar = $ @$.find('.progress-bar').toArray().pop()
     @status = $ @$.find('.sr-only').toArray().pop()
-  value : (val) =>
+  value : (val, description) =>
     @bar.css 'width', val + '%'
     @status.html val + '%'
-    if val is 100
-      @$.fadeOut => @$.remove() 
+    ( @$.fadeOut => @$.remove() ) if val is 100
+    @$.find('b').html description if description?
 
 class Button
   constructor : (opts={}) ->
