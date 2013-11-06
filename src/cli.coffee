@@ -141,5 +141,5 @@ switch (cmd = optimist.argv._.shift())
     when 'key'     then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
     when 'id'      then console.log [ Settings.name + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
-    when 'tor'     then Tor.start (->)
+    when 'tor'     then Tor.start -> api.on 'tor.log', console.log
     else api.listen()

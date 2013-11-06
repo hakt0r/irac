@@ -20,31 +20,40 @@ User = null # otr user object
 # BufferStream = require('bufferstream')
 
 IRAC = 
-  end : String.fromCharCode 0
-  ini : String.fromCharCode 1
-  otr : String.fromCharCode 2
-  msg : String.fromCharCode 3
-  frm : String.fromCharCode 4
+  ini : 1
+  otr : 2
+  msg : 3
+  frm : 4
 
   byId : {}
   lastclient : 0
 
   stream : {}
   laststream : 0
-  
+
+  message : (type, id, data) ->
+    # console.log 'msg:'+type+':'+data.length
+    b = new Buffer 9 + data.length
+    b.writeUInt8 type, 0
+    b.writeUInt32LE data.length, 1
+    b.writeUInt32LE (if id? id else 0), 5
+    b.write data, 9
+    b
+
   broadcast : (data) -> socket.write data for id, socket of IRAC.byId
   groupcast : (group,data) -> socket.write data for id, socket of group
 
   announce  : (mime,group) ->
     id = IRAC.laststream++
     group = IRAC.byId unless group?
-    socket.write "#{IRAC.msg}#{@id} #{mime}#{IRAC.end}" for id, socket of group 
+    head = IRAC.message(IRAC.msg, null, new Buffer "#{@id} #{mime}")
+    socket.write message for id, socket of group 
+    b = new Buffer 9
+    b.writeUInt8 IRAC.frm, 0
+    b.writeUInt32LE id, 5
     (data) ->
-      b = new Buffer 17
-      b.writeUInt8 0, 0
-      b.writeUInt32LE id, 1
-      b.writeUInt32LE data.length, 3
-      for id, socket of group 
+      for id, socket of group
+        b.writeUInt32LE data.length, 1
         socket.write b
         socket.write data
       null
@@ -55,20 +64,19 @@ IRAC =
     d = cp.spawn('padsp',['opusdec','-'],stdio:['pipe','ignore','ignore'])
     IRAC.stream[id] = s = id:id,path:p,file:w,buffer:0,offset:0,decoder:d
 
-  recieve_frame : (id, data) -> try IRAC.stream[id].file.write msg
-
-  sendotr : (socket) -> (data) ->
-    socket.write IRAC.otr + data + IRAC.end
+  rcvframe : (id, data) -> try IRAC.stream[id].file.write msg
 
   sockfail : (socket, reason) -> (err) ->
-    console.log reason.magenta
-    api.emit reason, socket, err
+    console.log reason.magenta + ' ' + err
+    # api.emit reason, socket, err
     delete IRAC.byId[socket.info.id]
     socket.end()
 
 new_connection = (err, socket, opts) -> unless err
-
-  ses = ctx = null; id = IRAC.lastclient++
+  pt = {}
+  inbuf = new Buffer []
+  ses = ctx = binbuf = null
+  id = IRAC.lastclient++
 
   info = socket.info = id : id, user : 'anonyomus', otr : {}
   info[k] = v for k,v of info
@@ -77,47 +85,99 @@ new_connection = (err, socket, opts) -> unless err
   socket.on "end",     IRAC.sockfail socket, 'disconnected'
   socket.on "timeout", IRAC.sockfail socket, 'timeout'
 
-  inbuf = new Buffer []
-  frameSize = 0
-  streamId  = 0
-
   iracfrmp = (data) ->
+    seek = yes
     inbuf = Buffer.concat [inbuf, data]
-    while ( msgEnd = inbuf.indexOf(IRAC.end) ) > -1
-      type  = inbuf.toString 'utf8', 0, 1
-      msg   = inbuf.slice 1, msgEnd
-      inbuf = inbuf.slice msgEnd + 1
-      protocol.frmhandler type, msg
+    while seek and inbuf.length > 4
+      type = inbuf.readUInt8 0
+      len  = inbuf.readUInt32LE 1
+      # console.log type + '@' + len + ":" + inbuf.length
+      if seek = inbuf.length >= len + 9
+        msg   = inbuf.slice 9, len + 9
+        inbuf = inbuf.slice len + 9
+        if type is IRAC.frm
+          pt.msghandler = iracbinp
+          binbuf = []
+          binbuf.total = 0
+          binbuf.streamId = info.name + data.readUInt32LE 1
+          binbuf.frameSize = data.readUInt32LE 5
+          null
+        else
+          # console.log "frm".yellow + ' ' + msg.length + ' ' + msg.toString 'utf8'
+          pt.frmhandler type, msg
     null
 
+  iracbinp = (data) ->
+    binbuf.total += data.length
+    unless binbuf.total >= binbuf.frameSize
+      binbuf.push data; null # data is the current frame, not pushed to binbuf, but added to total
+    inbuf = if binbuf.total > binbuf.frameSize
+        data.slice binbuf.total - data.length + 1
+      else new Buffer []
+    msg = if binbuf.length > 0
+        binbuf.push data.slice 0, binbuf.total - data.length
+        Buffer.concat binbuf 
+      else data.slice 0, binbuf.total - data.length
+    IRAC.rcvframe binbuf.streamId, msg
+    pt.msghandler = iracfrmp; binbuf = null
+
   iracinip = (type, data) ->
-    IRAC.sockfail(socket,'protocol_error') 'Malformed Handshake' unless type is IRAC.ini
-    protocol.frmhandler = iracctlp
+    OTR.debugOn()
+    IRAC.sockfail(socket,'protocol_error') 'Malformed Handshake: ' + type unless type is IRAC.ini
+    pt.frmhandler = iracctlp
     msg = data.toString('utf8').split ':'
     info.name = msg[0]; info.onion = msg[1]+':'+msg[2]; 
+    # Register
+    IRAC.byId[info.onion] = info
+    console.log 'new otr session with '.blue + info.name
     # Set up OTR
     info.otr.ctx = ctx = User.ConnContext(Settings.name, "irac", info.name)
-    info.otr.ses = ses = new OTR.Session User, ctx, policy: OTR.POLICY("ALWAYS ALLOW_V3 REQUIRE_ENCRYPTION"), MTU : 5000
-    ses.on "create_instag", (accountname,protocol) -> User.generateInstag accountname, protocol, ((err,instag) ->)
-    ses.on "new_fingerprint", (fingerprint) -> console.log fingerprint
-    ses.on "message", (data) -> iracfrmp new Buffer data
-    ses.on "inject_message", IRAC.sendotr(socket)
-    ses.on "smp_request", => ses.respond_smp()
-    ses.on "gone_secure", =>
-      console.log if ses.isAuthenticated() then "secure connexion".green else console.log "insecure connexion".red
-    ses.on "still_secure", =>
-      console.log if ses.isAuthenticated() then "secure connexion".green else console.log "insecure connexion".red
-    ses.on "smp_complete", =>
+    info.otr.ses = ses = new OTR.Session User, ctx,
+      policy: OTR.POLICY("ALWAYS") + OTR.POLICY('REQUIRE_ENCRYPTION')
+      MTU : 5000
+    ses.on "error", console.log
+    ses.on "message", (data) ->
+      #console.log data.cyan
+      iracctlp data.charCodeAt(0), data.substr(1)
+    ses.on "inject_message", (data) -> socket.write IRAC.message(IRAC.otr,null,data)
+
+    ses.on "msg_event", (num,msg,err) ->
+      #console.log OTR.MSGEVENT(num).red + ": " + msg + ':' + err
+      ses.connect()
+
+    ses.on "create_instag", (accountname,protocol) ->
+      #console.log 'Create instag for '.red + accountname, protocol
+      User.generateInstag accountname, protocol, (err,tag) ->
+        console.log 'Created instag for '.green + accountname, protocol
+
+    ses.on "create_privkey", (accountname,protocol) ->
+      #console.log 'Create privkey for '.red + accountname, protocol
+      User.generateKey accountname, protocol, (err,tag) ->
+        console.log 'Created privkey for '.green + accountname, protocol
+
+    ses.on "new_fingerprint", (fingerprint) ->
+      # console.log 'FINGERPRINT '.yellow + fingerprint
       User.writeFingerprints()
-      console.log if ses.isAuthenticated() then "secure connexion".green else console.log "insecure connexion".red
+    ses.on "smp_request", -> ses.respond_smp()
+
+    _sec = (evt,call) -> ses.on evt, ->
+      console.log evt.red + '########################################################'.blue
+      console.log evt.red, if ses.isAuthenticated() then "secure connexion".green else "insecure connexion".red
+      call() if call?
+    _sec 'gone_secure', -> ses.send String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM'
+    _sec 'still_secure'
+
+    ses.on "smp_complete", -> User.writeFingerprints()
     socket.otr = (data) -> ses.send data
-    socket.otr IRAC.ini + 'PEER 0.9/KREEM' + IRAC.end
+    setTimeout (-> ses.connect()), 2000
     null
 
   iracctlp = (type, data) ->
+    # console.log 'ctl'.red + ':' + type + ':' + data
     switch type
       when IRAC.otr then ses.recv data.toString 'utf8'
       when IRAC.ini
+        # console.log 'helo'.green
         msg = data.toString('utf8').split ' '
         info.class   = msg.shift()
         info.version = msg.shift()
@@ -128,28 +188,16 @@ new_connection = (err, socket, opts) -> unless err
         msg = data.toString('utf8').split ' '
         id = info.name + parseInt msg[0]; mime = msg[1]
         IRAC.recieve id, mime
-        api.emit 'stream', socket, id, mime
-        api.emit 'stream.' + mime, socket, id, mime
-      when IRAC.frm
-        protocol.msghandler = iracbinp
-        streamId = info.name + data.readUInt32LE 1
-        frameSize = data.readUInt32LE 3
-      else console.log 'iracctlp error '.red + 'type not recognized: '.yellow + type
+        api.emit 'stream',         info, id, mime
+        api.emit 'stream.' + mime, info, id, mime
+      else
+        console.log 'iracctlp error '.red + 'type not recognized: '.yellow + type
+        process.exit 255
 
-  iracbinp = (data) ->
-    inbuf = Buffer.concat [inbuf, data]
-    null unless inbuf.length > frameSize
-    msg = inbuf.slice 0, frameSize
-    inbuf = inbuf.slice frameSize
-    protocol.msghandler = iracfrmp
-    IRAC.recieve_frame streamId, msg
-
-  protocol = 
-    msghandler : iracfrmp
-    frmhandler : iracinip
-
-  socket.on "data", (data) -> protocol.msghandler data
-  socket.write IRAC.ini + Settings.name + ':' + Settings.onion + ':' + Settings.port + IRAC.end, 'utf8'
+  pt.msghandler = iracfrmp
+  pt.frmhandler = iracinip
+  socket.on "data", (data) -> pt.msghandler data
+  socket.write IRAC.handshake
   null
 
 ###
@@ -228,6 +276,11 @@ init = (callback=(->)) -> new ync.Sync
   config_dir    : -> mkdir DOTDIR, (firstboot) => @firstboot = firstboot; @proceed()
   read_settings : -> Settings.read @proceed
   # config_dir_setup : -> unless @firstboot and api.GUI then @proceed() else api.emit 'init.firstboot', @proceed 
+  apply_settings : ->
+    msg = Settings.name + ':' + Settings.onion + ':' + Settings.port
+    console.log '[' + msg.red + ']'
+    IRAC.handshake = IRAC.message(IRAC.ini, null, msg)
+    @proceed()
   config_dir_read  : ->
     Settings.ssl = {} unless Settings.ssl?
     j = new ync.Join true
@@ -264,7 +317,8 @@ init = (callback=(->)) -> new ync.Sync
         else
           console.log "OTR".yellow, "Generated Key Successfully"
           j.join User.writeFingerprints()
-    else j.join()
+          api.emit 'init.otr.done'
+    else j.join api.emit 'init.otr.done'
     j.end @proceed
   ready : ->
     api.emit 'init.readconf'

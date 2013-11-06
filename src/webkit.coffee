@@ -171,9 +171,9 @@ $(document).ready ->
       <span class="text">#{message}</span>
     </div>"""
 
-  api.on 'stream', (id, mime) -> History.prepend """
+  api.on 'stream', (info, id, mime) -> History.prepend """
     <div class="message" data-onion="#{info.onion}">
       <img  class="avatar" src="img/anonymous.svg" />
       <span class="nick">#{info.name}</span>
-      <span class="text">#{message}</span>
+      <span class="text">#started streaming #{mime}</span>
     </div>"""
