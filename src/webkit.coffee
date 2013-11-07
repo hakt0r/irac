@@ -19,6 +19,19 @@ api.cerosine = cerosine = require './js/cerosine'
 
 { Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
 
+i19 =
+  'tor.checkdir' : "Checking config dir"
+  'tor.readconf' : "Reading irac configuration"
+  'init.otr' : "Generating OTR-Key (this may take a while)"
+  'init.otr.done' : "OTR-Key was successfully generated"
+  'tor.checkport' : "Checking if Tor is running"
+  'tor.updaterc' : "Updating torrc"
+  'tor.start' : "Starting Tor"
+  'tor.ready' : "Tor is ready"
+  'init.listen' : "IRAC service is listening"
+  'init.callmyself' : "Trying to connect to myself"
+  'init.callmyself.success' : "Ready"
+
 console.log '[ gui ] irac/v0.9-kreem', DOTDIR
 
 tray = new gui.Tray
@@ -62,8 +75,10 @@ $(document).ready ->
         @toggle()
   add = $('#add').on 'click', -> addBuddy.toggle()
 
-  api.on 'connection', (info) ->
-    Buddys.find("""span[data-onion="#{info.onion}"]""").removeClass 'offline'
+  api.on 'buddy', (buddy,info) ->
+    b = Buddys.find("""span[data-onion="#{info.onion}"]""")
+    b.removeClass 'offline'
+    b.find('.nick').html info.name
     History.prepend """
       <div class="message" data-onion="#{info.onion}">
         <img  class="avatar" src="img/anonymous.svg" />
@@ -117,16 +132,60 @@ $(document).ready ->
   #api.on 'init.confdir', -> init_progress.value 5
 
   api.on 'init.readconf', ->
-    init_progress.value 10, 'init.readconf'
+    init_progress.value 10, i19['init.readconf']
 
     update_profile()
 
+    ###
+      Buddy List
+    ###
+
     for k,v of Settings.buddy
+      name = if v? and v.name? then v.name else k 
       Buddys.append """
         <span class="buddy offline" data-onion="#{k}">
           <img  class="avatar" src="img/anonymous.svg" />
-          <span class="nick">#{k}</span>
+          <span class="nick">#{name}</span>
         </span>"""
+
+    _bless_buddy = (k,v) ->
+      v = $ v
+      onion = v.attr 'data-onion'
+      buddy = Settings.buddy[onion]
+      v.on 'click', (evt) ->
+        m = new gui.Menu()
+        m.append new gui.MenuItem label: onion, enabled : no
+        m.append new gui.MenuItem label: 'Open chat'
+        m.append new gui.MenuItem label: 'Send message'
+        m.append new gui.MenuItem label: 'Send file'
+        m.append new gui.MenuItem type:  'separator'
+        m.append new gui.MenuItem label: 'Authenticate', click : ->
+          console.log buddy
+          _authenticate buddy
+        #m.append new gui.MenuItem label: 'Remove buddy', click : ->
+        #  delete Settings.buddy[onion]
+        #  v.remove()
+        #  Settings.save()
+        m.popup evt.x, evt.y
+
+    _authenticate = (buddy) ->
+      smp = new Dialog
+        show : yes
+        id : 'smp' + buddy.onion
+        form :
+          question : type : Text, title : 'Secret Question'
+          answer   : type : Text, title : 'Answer'
+        btn :
+          cancel  : title : 'Cancel', click : -> smp.close()
+          default : title : 'Start',  click : ->
+            ses = buddy.otr.ses
+            ses.smp_start @$.find('#question').val(), @$.find('#answer').val()
+            smp.close()
+            progress = new Progress title : 'Authenticating', frame : History
+            ses.on 'smp_complete', ->
+              progress.remove()
+
+    $('#buddys > .buddy').each _bless_buddy
 
     # 'Settings' Dialog
     settings = new Dialog
@@ -149,7 +208,9 @@ $(document).ready ->
           Settings.save => @toggle null, update_profile()
     add = $('#settings').on 'click', -> settings.toggle()
 
-  state = # hehe
+  state =
+   'init.readconf' : 5
+   'init.checkdir' : 10
    'init.otr' : 10
    'init.otr.done' : 15
    'tor.checkport' : 22
@@ -157,9 +218,10 @@ $(document).ready ->
    'tor.start' : 26
    'tor.ready' : 30
    'init.listen' : 40
-   'test.callmyself' : 50
-   'test.callmyself.success' : 100
-  hookstate = (k,v) -> api.on k, -> init_progress.value v,k
+   'init.callmyself' : 50
+   'init.callmyself.success' : 100
+
+  hookstate = (k,v) -> api.on k, -> init_progress.value v, i19[k]
   hookstate k,v for k,v of state
 
   api.on 'tor.log', (args...) -> console.debug args.join ' '
