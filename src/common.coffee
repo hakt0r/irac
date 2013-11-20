@@ -21,7 +21,7 @@ module.exports = (opts={}) ->
 
   api.optimist = optimist = require 'optimist'
 
-  api.xl = xl = require '../../xumlib'
+  api.xl = xl = require 'xumlib'
   api.Xync = xl.Xync
   api.Xhell = xl.Xhell
   api.Xcript = xl.Xcript
@@ -36,7 +36,7 @@ module.exports = (opts={}) ->
   api.fs = fs = require 'fs'
   api.colors  = require 'colors'
   api.cp      = require 'child_process'
-  api.ync     = require '../../ync/src/ync'
+  api.ync     = require 'ync'
 
   # Quick crypto functions {everyday hashes}
   api.crypto = crypto = require 'crypto'
