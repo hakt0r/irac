@@ -10,13 +10,13 @@
 
 ###
 
+{ Tor, Player, Recorder, EventEmitter, ync, DOTDIR, fs,
+  Settings, sha512, md5, mkdir, xl, cp, OTR, IRAC, optimist,
+} = ( api = global.api )
+
 ###
   The Mighty init sync
 ###
-
-{ Tor, Player, Recorder, EventEmitter, ync, DOTDIR, fs,
-  Settings, sha512, md5, mkdir, xl, cp, OTR, IRAC,
-} = ( api = global.api )
 
 module.exports.init = init = (callback) -> new ync.Sync
   debug : yes
