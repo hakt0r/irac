@@ -249,4 +249,4 @@ $(document).ready ->
 
   api.on 'message', api.history
   api.on 'stream', (info, id, mime) ->
-    api.history "started streaming #{mime}"
+    api.history info, "started streaming #{mime}"

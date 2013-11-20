@@ -42,27 +42,31 @@ IRAC =
   groupcast : (group,data) -> socket.write data for id, socket of group
 
   announce  : (mime,group) ->
-    id = IRAC.laststream++
     group = IRAC.byId unless group?
-    head = IRAC.message(IRAC.msg, null, "#{@id} #{mime}")
-    socket.write head for id, socket of group 
+    id = IRAC.laststream++
+    head = IRAC.message IRAC.msg, null, "#{id} #{mime}"
+    socket.write head for k, socket of group 
     b = new Buffer 9
     b.writeUInt8 IRAC.frm, 0
     b.writeUInt32LE id, 5
     (data) ->
+      b.writeUInt32LE data.length, 1
       for id, socket of group
-        b.writeUInt32LE data.length, 1
         socket.write b
         socket.write data
       null
 
   recieve : (id,mime) ->
     p = DOTDIR + '/tmp/' + id
+    _log 'stream'.red, id, mime, p
     w = fs.createWriteStream p
     d = cp.spawn('padsp',['opusdec','-'],stdio:['pipe','ignore','ignore'])
-    IRAC.stream[id] = s = id:id,path:p,file:w,buffer:0,offset:0,decoder:d
+    IRAC.stream[id] = id:id,path:p,file:w,buffer:0,offset:0,decoder:d
 
-  rcvframe : (id, data) -> try IRAC.stream[id].file.write msg
+  rcvframe : (id, data) ->
+    _log 'frame'.red, data.length
+    IRAC.stream[id].file.write data
+    IRAC.stream[id].decoder.stdin.write data
 
   sockfail : (socket, reason) -> (err) ->
     _log reason.magenta + ' ' + err
@@ -90,20 +94,16 @@ new_connection = (err, socket, opts) -> unless err
     while seek and inbuf.length > 4
       type = inbuf.readUInt8 0
       len  = inbuf.readUInt32LE 1
-      # _log type + '@' + len + ":" + inbuf.length
+      id   = inbuf.readUInt32LE 5
       if seek = inbuf.length >= len + 9
         msg   = inbuf.slice 9, len + 9
         inbuf = inbuf.slice len + 9
         if type is IRAC.frm
-          pt.msghandler = iracbinp
-          binbuf = []
-          binbuf.total = 0
-          binbuf.streamId = info.name + data.readUInt32LE 1
-          binbuf.frameSize = data.readUInt32LE 5
+          streamId = info.name + id
+          IRAC.rcvframe streamId, msg
           null
-        else
-          # _log "frm".yellow + ' ' + msg.length + ' ' + msg.toString 'utf8'
-          pt.frmhandler type, msg
+        else pt.frmhandler type, msg
+        # _log "frm".yellow + ' ' + msg.length + ' ' + msg.toString 'utf8'
     null
 
   iracbinp = (data) ->
@@ -155,7 +155,6 @@ new_connection = (err, socket, opts) -> unless err
       User.writeFingerprints()
     _sec = (evt,callback) -> ses.on evt, -> callback() if callback?
     _sec 'gone_secure', ->
-      _log 'IniIniIniIniIniIni'.cyan
       ses.send String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM' if parseInt(info.onion,36) > parseInt(Settings.onion,36)
     _sec 'still_secure'
     ses.on "smp_complete", -> User.writeFingerprints()
@@ -244,23 +243,19 @@ listen = (callback) -> Tor.start ->
     ( [ host, port ] = host.split ':'; port = parseInt port ) if host.indexOf(':') > 0
     host = host + '.onion' unless host.match 'onion$'
     onion = host.replace(/.onion$/,'')+(if port isnt 33023 then ':' + port else '')
-    return connect_raw '127.0.0.1', port, callback # debug with raw
+    # return connect_raw '127.0.0.1', port, callback # debug with raw
     _log ['connecting', host, port, Settings.torport].join ' '
     remote_options = host: host, port: port, ssl : yes
     socks_options  = host: "127.0.0.1", port: Settings.torport
     socket = new socksjs remote_options, socks_options
-    socket.on 'connect', (err, socket) ->
+    onconnect = (err) ->
       unless err
-        # _log 'connect'.green,'[','raw'.red,']', 'undecided'.red, host, port
         return if callback(true, socket) is true
-        # _log 'connect'.green,'[','raw'.red,']', 'keep'.green, host, port
         new_connection err, socket, onion : host, port : port
       else
-        # _log 'connect'.red,'[','raw'.red,']', host, port
         callback false, err
-    socket.on 'error', ->
-      callback false if callback?
-      _log host
+    socket.on 'connect', (err, socket) -> onconnect err, socket
+    socket.on 'error', -> callback false if callback?
     api.emit 'test.callmyself'
     null
 
@@ -274,14 +269,9 @@ listen = (callback) -> Tor.start ->
     _log 'connecting'.yellow,'[','raw'.red,']', host, port
     onconnect = (err) ->
       unless err
-        _log 'connect'.green,'[','raw'.red,']', 'undecided'.red, host, port
-        if callback(true, socket) is true
-          _log 'connect'.green,'[','raw'.red,']', 'flush'.green, host, port
-          return
-        _log 'connect'.green,'[','raw'.red,']', 'keep'.green, host, port
+        return if callback(true, socket) is true
         new_connection err, socket, onion : host, port : port
       else
-        _log 'connect'.red,'[','raw'.red,']', host, port
         callback false, err
     socket = require('tls').connect { host : host, port : port, rejectUnauthorized : no, key: Settings.ssl.key, cert: Settings.ssl.cert }, onconnect
     socket.once 'error', ->

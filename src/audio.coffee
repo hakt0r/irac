@@ -41,9 +41,7 @@ class HackyRecorder extends EventEmitter
     @record = cp.spawn 'arecord',['-c','1','-r','48000','-twav','-'],stdio:['pipe','pipe','ignore']
     encode  = cp.spawn 'opusenc',['--ignorelength','--bitrate','96','-','-'],stdio:['pipe','pipe','ignore']
     @record.stdout.pipe encode.stdin
-    encode.stdout.on 'data', (data)->
-      console.log 'feed'
-      feed data
+    encode.stdout.on 'data', feed
     @running = yes
     @emit 'start'
   stop : =>
