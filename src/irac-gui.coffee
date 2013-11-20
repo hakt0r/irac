@@ -10,27 +10,16 @@
 
 ###
 
-colors = require 'colors'
-require('./js/common') { $ : $, GUI : true, gui : require 'nw.gui' }
+_P = './js'
 
-{ GUI, DOTDIR, connect, gui, optimist, fs, ync, shell, Tor, Player, Recorder, Settings } = ( api = global.api )
+require(_P+'/common') $ : $, GUI : true, gui : require 'nw.gui'
 
-api.cerosine = cerosine = require './js/cerosine'
+{ i19, GUI, DOTDIR, connect, gui, optimist, fs, ync, Tor, Player, Recorder, Settings } = ( api = global.api )
 
-{ Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
+api.cerosine = cerosine = require _P+'/cerosine'
 
-i19 =
-  'tor.checkdir' : "Checking config dir"
-  'tor.readconf' : "Reading irac configuration"
-  'init.otr' : "Generating OTR-Key (this may take a while)"
-  'init.otr.done' : "OTR-Key was successfully generated"
-  'tor.checkport' : "Checking if Tor is running"
-  'tor.updaterc' : "Updating torrc"
-  'tor.start' : "Starting Tor"
-  'tor.ready' : "Tor is ready"
-  'init.listen' : "IRAC service is listening"
-  'init.callmyself' : "Trying to connect to myself"
-  'init.callmyself.success' : "Ready"
+{ HTML, Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
+
 
 console.log '[ gui ] irac/v0.9-kreem', DOTDIR
 
@@ -48,12 +37,20 @@ tray.menu = menu
 
 update_profile = ->
   $('#profile > .nick').html Settings.name
-  $('#profile > .address').html Settings.onion + ':' + Settings.port
+  $('#profile > .onion').html Settings.onion + ':' + Settings.port
   $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
 
 
 $(document).ready ->
   api.init api.listen
+
+  # History
+  api.history = (info, message) -> History.prepend """
+    <div class="message" data-onion="#{info.onion}">
+      <img  class="avatar" src="img/anonymous.svg" />
+      <span class="nick">#{info.name}</span>
+      <span class="text">#{message}</span>
+    </div>"""
 
   # Recorder (logo button)
   ptt = $('#logo').on 'click', -> Recorder.toggle()
@@ -73,18 +70,38 @@ $(document).ready ->
         Settings.buddy[addr] = {}
         Settings.save()
         @toggle()
+
   add = $('#add').on 'click', -> addBuddy.toggle()
 
-  api.on 'buddy', (buddy,info) ->
+  api.on 'buddy.offline', (buddy,info) ->
+    b = Buddys.find("""span[data-onion="#{info.onion}"]""")
+    b.addClass 'offline'
+    b.find('.nick').html info.name
+    api.history info, '(disconnected)'
+
+  api.on 'buddy.online', (buddy,info) ->
     b = Buddys.find("""span[data-onion="#{info.onion}"]""")
     b.removeClass 'offline'
     b.find('.nick').html info.name
-    History.prepend """
-      <div class="message" data-onion="#{info.onion}">
-        <img  class="avatar" src="img/anonymous.svg" />
-        <span class="nick">#{info.name}</span>
-        <span class="text">(connected)</span>
-      </div>"""
+    api.history info, '(connected)'
+
+    info.otr.ses.on 'smp_request', (question) ->
+      debugger
+      smp = new Dialog
+        show : yes
+        id : 'smp' + buddy.onion
+        form :
+          question : type : HTML, title : 'Secret Question', value : question
+          answer   : type : Text, title : 'Answer'
+        btn :
+          cancel  : title : 'Cancel', click : -> smp.close()
+          default : title : 'Start',  click : ->
+            ses = buddy.session.otr.ses
+            ses.respond_smp @$.find('#answer').val()
+            smp.close()
+            progress = new Progress title : 'Authenticating', frame : History
+            ses.on 'smp_complete', -> progress.remove()
+      smp.show()
 
   # 'Upload' Dialog
   upload = new Dialog
@@ -141,10 +158,11 @@ $(document).ready ->
     ###
 
     for k,v of Settings.buddy
-      name = if v? and v.name? then v.name else k 
+      name = if v? and v.name? then v.name else ''
       Buddys.append """
         <span class="buddy offline" data-onion="#{k}">
           <img  class="avatar" src="img/anonymous.svg" />
+          <span class="onion">#{k}</span>
           <span class="nick">#{name}</span>
         </span>"""
 
@@ -160,7 +178,6 @@ $(document).ready ->
         m.append new gui.MenuItem label: 'Send file'
         m.append new gui.MenuItem type:  'separator'
         m.append new gui.MenuItem label: 'Authenticate', click : ->
-          console.log buddy
           _authenticate buddy
         #m.append new gui.MenuItem label: 'Remove buddy', click : ->
         #  delete Settings.buddy[onion]
@@ -178,12 +195,14 @@ $(document).ready ->
         btn :
           cancel  : title : 'Cancel', click : -> smp.close()
           default : title : 'Start',  click : ->
-            ses = buddy.otr.ses
-            ses.smp_start @$.find('#question').val(), @$.find('#answer').val()
+            ses = buddy.session.otr.ses
+            console.log @$.find('#question').val(), @$.find('#answer').val()
+            ses.start_smp_question @$.find('#question').val(), @$.find('#answer').val()
             smp.close()
             progress = new Progress title : 'Authenticating', frame : History
             ses.on 'smp_complete', ->
               progress.remove()
+      smp.show()
 
     $('#buddys > .buddy').each _bless_buddy
 
@@ -209,33 +228,25 @@ $(document).ready ->
     add = $('#settings').on 'click', -> settings.toggle()
 
   state =
-   'init.readconf' : 5
    'init.checkdir' : 10
    'init.otr' : 10
    'init.otr.done' : 15
    'tor.checkport' : 22
    'tor.updaterc' : 24
+   'init.readconf' : 25
    'tor.start' : 26
    'tor.ready' : 30
    'init.listen' : 40
    'init.callmyself' : 50
    'init.callmyself.success' : 100
 
-  hookstate = (k,v) -> api.on k, -> init_progress.value v, i19[k]
+  hookstate = (k,v) -> api.on k, ->
+    console.debug process.pid + ' [debug] ' + ' ' + k + ' ' + v
+    init_progress.value v, i19[k]
   hookstate k,v for k,v of state
+  
+  # api.on 'tor.log', (args...) -> console.debug args.join ' '
 
-  api.on 'tor.log', (args...) -> console.debug args.join ' '
-
-  api.on 'message', (info, message) -> History.prepend """
-    <div class="message" data-onion="#{info.onion}">
-      <img  class="avatar" src="img/anonymous.svg" />
-      <span class="nick">#{info.name}</span>
-      <span class="text">#{message}</span>
-    </div>"""
-
-  api.on 'stream', (info, id, mime) -> History.prepend """
-    <div class="message" data-onion="#{info.onion}">
-      <img  class="avatar" src="img/anonymous.svg" />
-      <span class="nick">#{info.name}</span>
-      <span class="text">#started streaming #{mime}</span>
-    </div>"""
+  api.on 'message', api.history
+  api.on 'stream', (info, id, mime) ->
+    api.history "started streaming #{mime}"

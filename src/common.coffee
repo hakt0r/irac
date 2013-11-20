@@ -21,6 +21,12 @@ module.exports = (opts={}) ->
 
   api.optimist = optimist = require 'optimist'
 
+  api.xl = xl = require '../../xumlib'
+  api.Xync = xl.Xync
+  api.Xhell = xl.Xhell
+  api.Xcript = xl.Xcript
+  api.Xlyph = xl.Xlyph
+
   # Check out the environment
   api.os = os = require 'os'
   os.arch = os.arch().toLowerCase() # TOTHINK: overcache, consider maybe not
@@ -64,17 +70,13 @@ module.exports = (opts={}) ->
       require 'otr4'  # return otr object
 
   # Initialize Settings object 
-  api.Storable = Storable = require './storable'
-  api.Settings = Settings = new Storable DOTDIR + '/user.json',
+  api.Storable = require 'storable'
+  api.Settings = Settings = new api.Storable DOTDIR + '/user.json',
     defaults : name : 'anonymous', port : 33023, torport : 9051, reconnect_interval : 5000
     override : argv
   Settings.buddy = {} unless Settings.buddy?
 
   # Load core modules
-  api.shell  = shell  = require './ultrashell'
-  api.ultra  = ultra  = new shell.Ultrashell
-  api.Tor    = Tor    = require './tor'
-  api[k] = v for k,v of require './audio'
-  api[k] = v for k,v of require './kreem'
 
-  
+  for m in [ 'i19', 'tor', 'audio', 'kreem', 'tools' ]
+    api[k] = v for k,v of require './' + m

@@ -10,51 +10,51 @@
 
 ###
 
-{ DOTDIR, cp, fs, Settings, shell, ync } = ( api = global.api )
+{ DOTDIR, cp, fs, Settings, xl, ync } = ( api = global.api )
 
 portfinder = require 'portfinder'
 
-module.exports = class Tor
+module.exports.Tor = class Tor
   @running : no
   @readOnion : -> try fs.readFileSync(DOTDIR+'/hostname').toString('utf8').trim()
-  @readKey   : -> try fs.readFileSync(DOTDIR+'/private_key').toString('utf8').trim()
+  @readKey : -> try fs.readFileSync(DOTDIR+'/private_key').toString('utf8').trim()
 
   @readConf : ->
     Settings.onion   = Tor.readOnion().replace /.onion$/, ''
     Settings.privkey = Tor.readKey()
 
   @start : (callback) -> startup = new ync.Sync
-      fork : yes
+    fork : yes
 
-      checkport : ->
-        api.emit 'tor.checkport'
-        portfinder.basePort = Settings.torport
-        portfinder.getPort (err,port) ->
-          if port isnt portfinder.basePort
-            Tor.running = yes
-            console.log 'tor'.grey, 'tor seems to be running'.yellow
-            startup.run('ready')
-          else startup.proceed()
+    checkport : ->
+      api.emit 'tor.checkport'
+      portfinder.basePort = Settings.torport
+      portfinder.getPort (err,port) ->
+        if port isnt portfinder.basePort
+          Tor.running = yes
+          console.log 'tor'.grey, 'tor seems to be running'.yellow
+          startup.run('ready')
+        else startup.proceed()
 
-      config : =>
-        api.emit 'tor.updaterc'
-        console.log 'tor'.grey, 'update' + DOTDIR + '/torrc'
-        fs.writeFile DOTDIR + '/torrc', Tor.makerc(), startup.proceed
+    config : =>
+      api.emit 'tor.updaterc'
+      console.log 'tor'.grey, 'update' + DOTDIR + '/torrc'
+      fs.writeFile DOTDIR + '/torrc', Tor.makerc(), startup.proceed
 
-      start  : ->
-        api.emit 'tor.start'
-        cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
-        console.log 'tor'.grey, 'running', cmd
-        shell.readlines cmd,
-          line : (line) ->
-            line = line.trim()
-            api.emit 'tor.log', line unless line is ''
-            startup.proceed() if line.match /Tor has successfully opened a circuit/
+    start  : ->
+      api.emit 'tor.start'
+      cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
+      console.log 'tor'.grey, 'running', cmd
+      xl.scriptline cmd,
+        line : (line) ->
+          line = line.trim()
+          api.emit 'tor.log', line unless line is ''
+          startup.proceed() if line.match /Tor has successfully opened a circuit/
 
-      ready : ->
-        Tor.readConf()
-        callback() if callback?
-        api.emit 'tor.ready'
+    ready : ->
+      Tor.readConf()
+      callback() if callback?
+      api.emit 'tor.ready'
 
   @makerc : -> """
       DataDirectory #{DOTDIR}/tor

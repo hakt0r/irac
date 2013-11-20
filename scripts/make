@@ -1,5 +1,4 @@
 #!/bin/sh
 coffee -bco js/ src/*.coffee
-test -f js/sm2.js    || wget -O lib/sm2.js    "https://raw.github.com/scottschiller/SoundManager2/master/script/soundmanager2-nodebug-jsmin.js"
-test -f js/jquery.js || wget -O lib/jquery.js "http://code.jquery.com/jquery-2.0.3.min.js"
-cp src/irac js/
+mv js/irac.js js/irac
+chmod a+x js/irac

@@ -7,10 +7,10 @@
     "icon": "img/logo.png",
     "show": true,
     "transparent": true,
-    "toolbar": false,
+    "toolbar": true,
     "frame": true,
-    "position": "center",
-    "width": 360,
+    "position": "left",
+    "width": 200,
     "height": 600,
     "min_width": 220,
     "min_height": 220
@@ -19,7 +19,8 @@
     "plugin": true
   },
   "bin": {
-    "irac": "js/irac"
+    "irac": "js/irac",
+    "irac-gui": "scripts/irac-gui"
   },
   "scripts": {
     "prepublish": "sh scripts/make",
@@ -37,6 +38,8 @@
     "coffee-script": "~1.6.3",
     "buffertools": "~1.1.1",
     "portfinder": "~0.2.1",
+    "storable": "~0.0.1",
+    "xumlib": "~0.0.2",
     "socksjs": "~0.4.3",
     "otr4": "~0.0.4",
     "sudo": "~1.0.3",

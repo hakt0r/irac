@@ -1,3 +1,8 @@
 #!/bin/sh
-tickr 'npm run-script prepublish; ./node-webkit/nw .; echo reason' \
-	src/*.coffee
+tickr '
+if [ -f "/tmp/'$$'.pid" ]; then kill -9 $(cat "/tmp/'$$'.pid"); fi;
+npm run-script prepublish;
+"$HOME/.irac/node-webkit/nw" . & pid="$!";
+"$HOME/.irac/node-webkit/nw" . --config $HOME/.irac_test & pid2="$!";
+echo "pid: $pid $pid2"; echo $pid $pid2 > "/tmp/'$$'.pid";
+echo "reason:" ' src/*.coffee css/styles.css

@@ -1,4 +1,4 @@
-## irac - a p2p instant messanger for tor
+## irac - 'a p2p instant messanger for tor'-ish
 
 ![irac logo](https://raw.github.com/hakt0r/irac/master/img/logo.png)
 
@@ -6,14 +6,17 @@ Built with nodejs upon Tor, TLS/SSL and OTR-Messaging,
 irac is supposed to give you a peer-to-peer (audio-) chat solution that is
 easy to set-up and easy to use.
 
-Similtar to [TorChat] (https://github.com/prof7bit/TorChat).
+This is work in progress and not ready for field use.
+
+Similtar to [TorChat](https://github.com/prof7bit/TorChat).
 
 ### Installation
     $ sudo npm install irac (TODO: publish when ready ;)
     $ sudo npm install git://github.com/hakt0r/irac.git
 
 ### Usage
-    $ irac          (normal usage)
+    $ irac     (normal usage)
+    $ irac-gui (start gui, duh)
       --nick='anonymous'
       --port=33023
       --torport=9051
@@ -23,13 +26,14 @@ Similtar to [TorChat] (https://github.com/prof7bit/TorChat).
     $ irac port     (prints the tor and irac port-numbers)
     $ irac devinit  (dowloads node-webit and rebuilds modules)
     $ irac devgui   (runs the node-webit gui, requires successful devinit)
-    $ irac buildgui (builds the node-webit gui, requires successful devinit)
+    $ irac buildgui (builds the node-webkit gui, requires successful devinit)
+    $ irac pack     (builds a releaseable node-webkit package)
 
 
 ### Copyrights
   * c) 2010-2013 Sebastian Glaser <anx@ulzq.de>
   * c) 2010-2011 Kreem
-  * c) 2010,2013 Flyc0r
+  * c) 2010,2013 flyc0r
 
 ### Licensed under GNU GPLv3
 

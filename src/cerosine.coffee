@@ -63,7 +63,7 @@ class Progress
         <h4>#{@title} <b>#{@description}</b></h4>
         <div class="progress active"><div class="progress-bar"  role="progressbar" aria-valuenow="#{val}" aria-valuemin="0" aria-valuemax="100" style="width: 0%"><span class="sr-only">0%</span></div></div>
       </div>"""
-    @$   = $ @frame.find('> div').toArray().pop()
+    @$   = $ @frame.find('> div').toArray().shift()
     @bar = $ @$.find('.progress-bar').toArray().pop()
     @status = $ @$.find('.sr-only').toArray().pop()
   value : (val, description) =>
@@ -71,6 +71,9 @@ class Progress
     @status.html val + '%'
     ( @$.fadeOut => @$.remove() ) if val is 100
     @$.find('b').html description if description?
+  remove : =>
+    console.log @$
+    @$.remove()
 
 class Button
   constructor : (opts={}) ->
@@ -83,6 +86,18 @@ class Button
     @$.on 'click', (e) =>
       e.preventDefault()
       click.apply(@parent,arguments)
+
+class HTML
+  constructor : (opts={}) ->
+    { @id, @title, @frame, value, type } = opts
+    @title = @id unless @title?
+    @frame.append """
+      <div class="form-group">
+        <label for="#{@id}">#{@title}</label>
+        <div id="#{@id}" placeholder="#{@placeholder}">#{value}</div>
+      </div>"""
+    @$ = $ @frame.find('> div').toArray().pop()
+    @value = $ @$.find('> div').toArray().pop()
 
 class Field
   constructor : (opts={}) ->
@@ -122,4 +137,5 @@ module.exports =
   Password : Password
   Numeric : Numeric
   File : File
+  HTML : HTML
   Progress : Progress
