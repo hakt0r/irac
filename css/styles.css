@@ -1,0 +1,110 @@
+* { font-family: 'Liberation Sans'; font-weight: bold; color : #000; }
+
+h4 {
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold; }
+
+button.ptt  {
+  background: no-repeat url(../img/background.svg);
+  background-size: cover;
+  padding: no; }
+
+body {
+  background: rgba(0,0,0,0.4);
+  padding: 0.4em; }
+
+input {
+ border: solid rgba(255,255,255,0.5) 3px;
+ background: rgba(50,50,50,0.5);
+ border-radius: 5px;
+ padding: 5px; }
+
+#logo { background: url(../img/logo.svg) no-repeat; background-size: cover; }
+#logo.down { background: url(../img/logo_on.svg) no-repeat; background-size: cover; }
+button { border-radius: 15px; border: none 3px; background: rgba(0,0,0,0.5); }
+
+#buddys, #history {
+ background: rgb(80, 80, 80);
+ background-size: cover;
+ padding: 10px 0px;
+ border-radius: 10px;
+ color: #FFF;
+ border-top: solid 0.1em;
+ border-bottom: solid 0.1em;
+ margin-bottom: 0.1em; }
+
+.notify-progress {
+  padding : 0.3em;
+  background: #CCC; 
+  border-top: #444 solid 1px;
+  border-bottom: #444 solid 1px; }
+
+#header #profile, .buddy {
+  position: relative;
+  font-size: 1em;
+  padding-bottom: 0.3em; }
+
+#buddys .buddy {display: block;}
+.buddy.offline {opacity: 0.7;}
+
+.buddy > .nick,
+.buddy > .onion {
+  display: block;
+  overflow: hidden;
+  position: absolute; top: 0.15em; }
+
+.buddy > .onion {
+ line-height: 2.0em; left: 30px;
+  color : gray; }
+
+.buddy > .nick {
+ right: 5px;
+ color: #FFF;
+ font-size: 1.65em;
+ line-height: 1.0em;
+ margin-left: 0.1em; }
+
+.buddy > img { margin-left: 7px; width: 30px; height: 30px; margin:0; vertical-align: top; }
+
+#header > div {
+ padding: 3px;
+ padding-bottom: 0; }
+
+#header > div > button,
+#header > div > img {
+ width: 1.5em; height: 1.5em; margin:0; vertical-align: top; }
+
+button#add            { background: no-repeat url(../img/conf.svg);  background-size: cover; }
+button#add:hover      { background: no-repeat url(../img/conf_off.svg);  background-size: cover; }
+button#settings       { background: no-repeat url(../img/gear.svg); background-size: cover; }
+button#settings:hover { background: no-repeat url(../img/gear_off.svg); background-size: cover; }
+button#upload         { background: no-repeat url(../img/upload.svg); background-size: cover; }
+button#upload:hover   { background: no-repeat url(../img/upload_off.svg); background-size: cover; }
+button#play           { background: no-repeat url(../img/play.svg); background-size: cover; }
+button#play:hover     { background: no-repeat url(../img/play_off.svg); background-size: cover; }
+
+.message > img   {
+ width: 2em;
+ height: 2em;
+ margin: 0;
+ vertical-align: middle;
+ margin-left: 0.5em; }
+.message > .nick, .message > .text {
+ color: #FFF;
+ font-size: 1em;
+ line-height: 1.3em;
+ margin-left: 0.1em; }
+.message > .nick:before { content : "[" }
+.message > .nick:after  { content : "]" }
+
+.dialog {
+ position: fixed;
+ top: 2%;
+ left: 2%;
+ right: 2%;
+ margin-bottom: 2%;
+ padding: 4%;
+ background: rgba(255,255,255,0.9);
+ border: solid 0.3em;
+ border-radius: 1em; }
