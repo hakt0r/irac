@@ -11,8 +11,10 @@
 ###
 
 { Tor, Player, Recorder, EventEmitter, ync, DOTDIR, fs,
-  Settings, sha512, md5, mkdir, xl, cp, OTR, IRAC, optimist,
+  Settings, sha512, md5, mkdir, xl, cp, OTR, IRAC, optimist, os, Xhell, Xcript
 } = ( api = global.api )
+
+_log = (args...) -> console.log Settings.name.yellow + '] ' + args.concat().join ' ' 
 
 ###
   The Mighty init sync
@@ -24,7 +26,15 @@ module.exports.init = init = (callback) -> new ync.Sync
   config_dir : -> mkdir DOTDIR, (firstboot) => @firstboot = firstboot; @proceed()
 
   read_settings : -> Settings.read @proceed
-  # config_dir_setup : -> unless @firstboot and api.GUI then @proceed() else api.emit 'init.firstboot', @proceed 
+  
+  config_dir_setup : ->
+    # unless @firstboot and api.GUI then @proceed() else api.emit 'init.firstboot', @proceed 
+    unless Settings.onion?
+      Tor.start => 
+        #Tor.stop =>
+        console.log 'init-torr'
+        @proceed() 
+    else @proceed()
 
   apply_settings : ->
     IRAC.handshake = IRAC.message(IRAC.ini, null, msg = Settings.name + ':' + Settings.onion + ':' + Settings.port)
@@ -39,7 +49,8 @@ module.exports.init = init = (callback) -> new ync.Sync
       j.part()
 
       ssl = new ync.Sync
-        fork : yes
+        fork  : yes
+        debug : yes
 
         generate_key : -> 
           console.log 'Generating ssl key: '.red + DOTDIR.yellow
@@ -59,6 +70,7 @@ module.exports.init = init = (callback) -> new ync.Sync
         done : -> j.join console.log 'ssl keyread done'
 
     j.part() ## load otr private key / initialize account
+    _otr = '[' + "OTR".yellow + ']'
     api.emit 'init.otr'
     api.User = User = new OTR.User
       user : Settings.onion
@@ -66,99 +78,104 @@ module.exports.init = init = (callback) -> new ync.Sync
       fingerprints: "#{DOTDIR}/otr.fp" # path to fingerprints file (required)
       instags: "#{DOTDIR}/otr.instags" # path to instance tags file (required)
     if User.accounts().length < 1
-      console.log "OTR".yellow, "Generating Key"
+      console.log _otr, "Generating Key"
       User.generateKey Settings.onion , "irac", (err) ->
-        if err then console.log "OTR".yellow, "Something went wrong!", err.message
+        if err
+          console.log _otr, "Something went wrong!", err.message
         else
-          console.log "OTR".yellow, "Generated Key Successfully"
+          console.log _otr, "Generated Key Successfully"
           j.join User.writeFingerprints()
           api.emit 'init.otr.done'
     else j.join api.emit 'init.otr.done'
     j.end @proceed
 
   ready : ->
+    _log 'init:done'.green
     api.emit 'init.readconf'
     callback() if callback?
 
 module.exports.devinit = devinit = -> api.init ->
-  console.log '[', 'boostrapping'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow,
+  console.log '[', 'bootstrapping'.yellow, ']', 'irac'.cyan + '/' + 'v0.9'.magenta + '-' + 'kreem'.yellow,
     os.type[if os.type is 'linux' then 'green' else 'red'] + '[' + os.arch.grey + ']'
   url = "https://s3.amazonaws.com/node-webkit/v0.7.5/node-webkit-v0.7.5-#{os.type}-#{os.arch}.tar.gz"
-  boostrap = new ync.Sync
-    title : 'boostrap    '
+  bootstrap = new ync.Sync
+    title : 'bootstrap    '
+    fork : yes
 
-    download_webkit : -> get = require('https').get url, (res) ->
-      oldline = ''
-      start = (new Date).getTime()
-      length = parseInt res.headers['content-length']
-      got = 0
-      out = fs.createWriteStream(DOTDIR + '/node-webkit.tar.gz')
-      res.on 'data', (data) ->
-        now = (new Date).getTime()
-        got += data.length
-        percent = parseInt (got / length * 10).toFixed(0)
-        progress = '##########'.substr(0,percent).green + '          '.substr(0,10-percent)
-        speed = (got / (now - start) / 1024).toFixed(2) + ' mbps'
-        line = '[ ' + 'downloading  '.yellow + '] ' + 'node-webkit '.blue + '[ ' + progress + ' ] '
-        if (line isnt oldline) or (now - last > 0.5)
-          last = now
-          Xhell.reset()
-          Xhell.print line + ' @ ' + speed
-          oldline = line
-        out.write data
-      res.on 'error', ->
-        console.log 'error downloading'.red, url
-        process.exit 1
-      res.on 'end', -> boostrap.proceed Xhell.commit()
+    download_webkit : ->
+      if fs.existsSync DOTDIR + '/node-webkit.tar.gz' then @proceed() 
+      else get = require('https').get url, (res) ->
+        oldline = ''
+        start = (new Date).getTime()
+        length = parseInt res.headers['content-length']
+        got = 0
+        out = fs.createWriteStream(DOTDIR + '/node-webkit.tar.gz')
+        res.on 'data', (data) ->
+          now = (new Date).getTime()
+          got += data.length
+          percent = parseInt (got / length * 10).toFixed(0)
+          progress = '##########'.substr(0,percent).green + '          '.substr(0,10-percent)
+          speed = (got / (now - start) / 1024).toFixed(2) + ' mbps'
+          line = '[ ' + 'downloading  '.yellow + '] ' + 'node-webkit '.blue + '[ ' + progress + ' ] '
+          if (line isnt oldline) or (now - last > 0.5)
+            last = now
+            Xhell.reset()
+            Xhell.print line + ' @ ' + speed
+            oldline = line
+          out.write data
+        res.on 'error', ->
+          console.log 'error downloading'.red, url
+          process.exit 1
+        res.on 'end', -> bootstrap.proceed Xhell.commit()
 
-    install_webkit : -> new CLScript """
+    install_webkit : -> new Xcript """
         cd #{DOTDIR} || exit 1
         rm -rf node-webkit
         tar xzvf node-webkit.tar.gz
         mv node-webkit-v0.7.5-#{os.type}-#{os.arch} node-webkit
         echo ok
-      """, title : 'installing  ', subject : 'node-webkit', end : boostrap.proceed
+      """, title : 'installing  ', subject : 'node-webkit', end : bootstrap.proceed
 
-    webkit_linux_workaround : -> new CLScript """
+    webkit_linux_workaround : -> new Xcript """
       f="/lib/x86_64-linux-gnu/libudev.so.1"
       test -f  "$f" && {
         ln -sf "$f" #{DOTDIR}/node-webkit/libudev.so.0 && echo ok || echo failed
       } || echo 'n/a'
-      """, title : 'workaround  ', subject : 'node-webkit', end : boostrap.proceed
+      """, title : 'workaround  ', subject : 'node-webkit', end : bootstrap.proceed
 
-    install_nwgyp : -> new CLScript """
+    install_nwgyp : -> new Xcript """
         sudo npm install -g nw-gyp
         echo ok
-      """, title : 'installing  ', subject : 'nwgyp', end : boostrap.proceed
+      """, title : 'installing  ', subject : 'nwgyp', end : bootstrap.proceed
 
-    install_devtools : -> new CLScript """
+    install_devtools : -> new Xcript """
         sudo apt-get install opus-tools build-essential make awk g++ nodejs nodejs-dev libotr5 libotr5-dev
         echo ok
-      """, title : 'installing  ', subject : 'opus, devtools', end : boostrap.proceed
+      """, title : 'installing  ', subject : 'opus, devtools', end : bootstrap.proceed
 
     rebuild_buffertools : ->
       path = require.resolve('buffertools').split '/'
       path.pop()
       path = path.join '/'
-      new CLScript """
+      new Xcript """
         cd #{DOTDIR} || exit 1
         cp -r "#{path}" ./node-webkit
         cd ./node-webkit/buffertools
         nw-gyp rebuild --target=0.7.5
         echo ok
-      """, title : 'rebuilding  ', subject : 'buffertools', end : boostrap.proceed
+      """, title : 'rebuilding  ', subject : 'buffertools', end : bootstrap.proceed
 
     rebuild_otr4 : ->
       path = require.resolve('otr4').split '/'
       path.pop()
       path = path.join '/'
-      new CLScript """
+      new Xcript """
         cd #{DOTDIR} || exit 1
         cp -r "#{path}" ./node-webkit
         cd ./node-webkit/otr4
         nw-gyp rebuild --target=0.7.5
         echo ok
-      """, title : 'rebuilding  ', subject : 'otr4', end : boostrap.proceed
+      """, title : 'rebuilding  ', subject : 'otr4', end : bootstrap.proceed
 
     done : -> process.exit 0
 

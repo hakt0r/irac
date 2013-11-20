@@ -45,16 +45,21 @@ module.exports.Tor = class Tor
       api.emit 'tor.start'
       cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
       console.log 'tor'.grey, 'running', cmd
-      xl.scriptline cmd,
+      Tor.instance = xl.scriptline cmd,
         line : (line) ->
           line = line.trim()
           api.emit 'tor.log', line unless line is ''
           startup.proceed() if line.match /Tor has successfully opened a circuit/
 
     ready : ->
+      console.log 'tor'.grey, 'ready'
       Tor.readConf()
-      callback() if callback?
       api.emit 'tor.ready'
+      callback() if callback?
+
+  @stop : (callback) =>
+    @instance.kill() if @instance?
+    callback if callback?
 
   @makerc : -> """
       DataDirectory #{DOTDIR}/tor
