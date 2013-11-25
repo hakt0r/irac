@@ -10,18 +10,15 @@
 
 ###
 
-_P = './js'
-
-require(_P+'/common') $ : $, GUI : true, gui : require 'nw.gui'
+require( ( _base = './js' ) +'/common') $ : $, GUI : true, gui : require 'nw.gui'
 
 { i19, GUI, DOTDIR, connect, gui, optimist, fs, ync, Tor, Player, Recorder, Settings } = ( api = global.api )
 
-api.cerosine = cerosine = require _P+'/cerosine'
+api.cerosine = cerosine = require _base + '/cerosine'
 
 { HTML, Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
 
-
-console.log '[ gui ] irac/v0.9-kreem', DOTDIR
+console.log '[ gui ] irac/v0.9-kreem', DOTDIR, _base
 
 tray = new gui.Tray
   title : 'irac'
@@ -45,11 +42,13 @@ update_profile = ->
   $('#profile > .onion').html Settings.onion + ':' + Settings.port
   $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
 
+Buddy = require './js/buddylist'
+
+api.init api.listen
 
 $(document).ready ->
-  api.init api.listen
-
   # History
+  History = $ '#history'
   api.history = (info, message) -> History.prepend """
     <div class="message" data-onion="#{info.onion}">
       <img  class="avatar" src="img/anonymous.svg" />
@@ -62,54 +61,8 @@ $(document).ready ->
   Recorder.on 'start', -> ptt.addClass 'down'
   Recorder.on 'stop',  -> ptt.removeClass 'down'
 
-  # 'Add Buddy' Dialog
-  Buddys  = $ '#buddys'
-
-  addBuddy = new Dialog
-    id : 'addBuddy'
-    form : buddyAddress : type : eMail, title : 'Buddy Address', value : 'localhost:33023'
-    btn :
-      cancel  : title : 'Cancel',    click : -> @toggle()
-      default : title : 'Add Buddy', click : ->
-        api.connect addr = addBuddy.$.find("input").val()
-        Settings.buddy[addr] = {}
-        Settings.save()
-        @toggle()
-
-  add = $('#add').on 'click', -> addBuddy.toggle()
-
-  api.on 'buddy.offline', (buddy,info) ->
-    b = Buddys.find("""span[data-onion="#{info.onion}"]""")
-    b.addClass 'offline'
-    b.find('.nick').html info.name
-    api.history info, '(disconnected)'
-
-  api.on 'buddy.online', (buddy,info) ->
-    b = Buddys.find("""span[data-onion="#{info.onion}"]""")
-    b.removeClass 'offline'
-    b.find('.nick').html info.name
-    api.history info, '(connected)'
-
-    info.otr.ses.on 'smp_request', (question) ->
-      debugger
-      smp = new Dialog
-        show : yes
-        id : 'smp' + buddy.onion
-        form :
-          question : type : HTML, title : 'Secret Question', value : question
-          answer   : type : Text, title : 'Answer'
-        btn :
-          cancel  : title : 'Cancel', click : -> smp.close()
-          default : title : 'Start',  click : ->
-            ses = buddy.session.otr.ses
-            ses.respond_smp @$.find('#answer').val()
-            smp.close()
-            progress = new Progress title : 'Authenticating', frame : History
-            ses.on 'smp_complete', -> progress.remove()
-      smp.show()
-
   # 'Upload' Dialog
-  upload = new Dialog
+  Upload = new Dialog
     id : 'upload'
     form :
       nick   : type : Text, title : 'Title'
@@ -117,11 +70,9 @@ $(document).ready ->
     btn :
       cancel  : title : 'Cancel', click : -> @toggle()
       default : title : 'Save',   click : ->
-  add = $('#upload').on 'click', -> upload.toggle()
+  $('#upload').on 'click', -> Upload.toggle()
 
   # Handle api's events
-  History = $ '#history'
-
   api.on 'error', console.error
 
   api.on 'init.firsttimesetup', (callback) -> firsttimesetup = new Dialog
@@ -155,60 +106,7 @@ $(document).ready ->
 
   api.on 'init.readconf', ->
     init_progress.value 10, i19['init.readconf']
-
     update_profile()
-
-    ###
-      Buddy List
-    ###
-
-    for k,v of Settings.buddy
-      name = if v? and v.name? then v.name else ''
-      Buddys.append """
-        <span class="buddy offline" data-onion="#{k}">
-          <img  class="avatar" src="img/anonymous.svg" />
-          <span class="onion">#{k}</span>
-          <span class="nick">#{name}</span>
-        </span>"""
-
-    _bless_buddy = (k,v) ->
-      v = $ v
-      onion = v.attr 'data-onion'
-      buddy = Settings.buddy[onion]
-      v.on 'click', (evt) ->
-        m = new gui.Menu()
-        m.append new gui.MenuItem label: onion, enabled : no
-        m.append new gui.MenuItem label: 'Open chat'
-        m.append new gui.MenuItem label: 'Send message'
-        m.append new gui.MenuItem label: 'Send file'
-        m.append new gui.MenuItem type:  'separator'
-        m.append new gui.MenuItem label: 'Authenticate', click : -> _authenticate buddy
-        m.append new gui.MenuItem label: 'Remove buddy', click : ->
-          delete Settings.buddy[onion]
-          v.remove()
-          Settings.save()
-        m.popup evt.x, evt.y
-
-    _authenticate = (buddy) ->
-      smp = new Dialog
-        show : yes
-        id : 'smp' + buddy.onion
-        form :
-          question : type : Text, title : 'Secret Question'
-          answer   : type : Text, title : 'Answer'
-        btn :
-          cancel  : title : 'Cancel', click : -> smp.close()
-          default : title : 'Start',  click : ->
-            ses = buddy.session.otr.ses
-            console.log @$.find('#question').val(), @$.find('#answer').val()
-            ses.start_smp_question @$.find('#question').val(), @$.find('#answer').val()
-            smp.close()
-            progress = new Progress title : 'Authenticating', frame : History
-            ses.on 'smp_complete', ->
-              progress.remove()
-      smp.show()
-
-    $('#buddys > .buddy').each _bless_buddy
 
     # 'Settings' Dialog
     settings = new Dialog
