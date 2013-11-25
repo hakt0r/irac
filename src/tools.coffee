@@ -142,7 +142,7 @@ module.exports.init = init = (callback) ->
           j.end =>
             @log 'join-end'.red, j.count
             Settings.save @proceed
-      else Settings.read => Tor.start @proceed
+      else Settings.read => _otr_init => Tor.start @proceed
     settings : ->
       IRAC.handshake = IRAC.message(IRAC.ini, null, msg = Settings.name + ':' + Settings.onion + ':' + Settings.port)
       @proceed()
