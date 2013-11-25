@@ -181,12 +181,11 @@ $(document).ready ->
         m.append new gui.MenuItem label: 'Send message'
         m.append new gui.MenuItem label: 'Send file'
         m.append new gui.MenuItem type:  'separator'
-        m.append new gui.MenuItem label: 'Authenticate', click : ->
-          _authenticate buddy
-        #m.append new gui.MenuItem label: 'Remove buddy', click : ->
-        #  delete Settings.buddy[onion]
-        #  v.remove()
-        #  Settings.save()
+        m.append new gui.MenuItem label: 'Authenticate', click : -> _authenticate buddy
+        m.append new gui.MenuItem label: 'Remove buddy', click : ->
+          delete Settings.buddy[onion]
+          v.remove()
+          Settings.save()
         m.popup evt.x, evt.y
 
     _authenticate = (buddy) ->
