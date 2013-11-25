@@ -30,9 +30,10 @@ tray = new gui.Tray
 menu = new gui.Menu();
 menu.append new gui.MenuItem type:  'checkbox', label: 'Online'
 menu.append new gui.MenuItem type:  'checkbox', label: 'Talk', click : -> Recorder.toggle()
-menu.append new gui.MenuItem label: 'On top',   click : -> gui.Window.get().setAlwaysOnTop true
-menu.append new gui.MenuItem label: 'Devtools', click : -> gui.Window.get().showDevTools()
 menu.append new gui.MenuItem label: 'Settings', click : -> window.open 'settings.html', '_blank', 'screenX=0,screenY=0,width=100,height=100'
+menu.append new gui.MenuItem type:  'separator'
+menu.append new gui.MenuItem label: 'Devtools', click : -> gui.Window.get().showDevTools()
+menu.append new gui.MenuItem label: 'Always on top', click : -> gui.Window.get().setAlwaysOnTop true
 menu.append new gui.MenuItem type:  'separator'
 menu.append new gui.MenuItem label: 'Quit', click : -> process.exit(0)
 tray.menu = menu
