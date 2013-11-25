@@ -1,9 +1,9 @@
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -30,7 +30,9 @@ tray = new gui.Tray
 menu = new gui.Menu();
 menu.append new gui.MenuItem type:  'checkbox', label: 'Online'
 menu.append new gui.MenuItem type:  'checkbox', label: 'Talk', click : -> Recorder.toggle()
-menu.append new gui.MenuItem label: 'Settings'
+menu.append new gui.MenuItem label: 'Settings', click : ->
+  window.open('settings.html', '_blank', 'screenX=0,screenY=0,width=100,height=100');
+
 menu.append new gui.MenuItem type:  'separator'
 menu.append new gui.MenuItem label: 'Quit', click : -> process.exit(0)
 tray.menu = menu
@@ -145,7 +147,7 @@ $(document).ready ->
         Settings.save => @close null, update_profile()
 
   init_progress = new Progress title : 'Connecting to network...', frame : History
-  # api.on 'tor.log', (line) -> console.log line 
+  # api.on 'tor.log', (line) -> console.log line
   #api.on 'init.confdir', -> init_progress.value 5
 
   api.on 'init.readconf', ->
@@ -244,7 +246,7 @@ $(document).ready ->
     console.debug process.pid + ' [debug] ' + ' ' + k + ' ' + v
     init_progress.value v, i19[k]
   hookstate k,v for k,v of state
-  
+
   # api.on 'tor.log', (args...) -> console.debug args.join ' '
 
   api.on 'message', api.history

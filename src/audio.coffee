@@ -1,9 +1,9 @@
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -20,7 +20,7 @@ class HackyPlayer extends EventEmitter
     return unless item.decoder?
     @playing = yes
     read = fs.createReadStream item.path, start : item.offset
-    console.log 'playing'.red + ' ' + item.path if item.offset is 0 
+    console.log 'playing'.red + ' ' + item.path if item.offset is 0
     read.on 'data', (data) ->
       item.offset += data.length
       item.decoder.stdin.write data

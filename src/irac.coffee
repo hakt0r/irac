@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -24,7 +24,8 @@ if optimist.argv.debug?
 
 switch (cmd = optimist.argv._.shift())
   when 'devgui' then api.devgui()
-  when 'devinit' then api.devinit()
+  when 'devinit' then api.devinit (->), api.init.force = yes
+  when 'init' then api.init (->), api.init.force = yes
   else api.init -> Settings.read -> switch cmd
     when 'id'    then console.log [ Settings.name + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
     when 'key'   then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey

@@ -1,0 +1,9 @@
+#!/bin/sh
+tickr '
+killall tor
+rm -rf $HOME/.irac
+if [ -f "/tmp/'$$'.pid" ]; then kill -9 $(cat "/tmp/'$$'.pid"); fi;
+npm run-script prepublish;
+node js/irac devgui & pid="$!";
+echo "pid: $pid"; echo $pid > "/tmp/'$$'.pid";
+echo "reason:" ' src/*.coffee css/styles.css

@@ -1,9 +1,9 @@
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -46,7 +46,7 @@ class Dialog
     @outer.fadeIn  c; @hidden = false
   hide   : (c) => unless @hidden
     #@outer.css 'display', 'none'; @hidden = false; c() if c?
-    @outer.fadeOut c; @hidden = true 
+    @outer.fadeOut c; @hidden = true
   toggle : (c) => if @hidden then @show c else @hide c
 
 $().ready ->
@@ -128,7 +128,7 @@ class File extends Field
 class Numeric extends Field
   constructor : (opts={}) -> opts.type = 'number';   super opts
 
-module.exports = 
+module.exports =
   Text : Text
   eMail : eMail
   Field : Field

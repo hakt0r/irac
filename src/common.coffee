@@ -1,9 +1,9 @@
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -15,20 +15,38 @@ module.exports = (opts={}) ->
 
   # Create the api Object
   EventEmitter = require('events').EventEmitter
-  global.api = api = new EventEmitter
+
+  class IRApi extends EventEmitter
+    installList : {}
+    install : (mod, callback) ->
+      npm = require 'npm'
+      npm.load null, =>
+        npm.commands.install Object.keys(@installList), callback
+        npm.on 'log', console.log
+        npm.on 'debug', console.log
+    require : (mod) ->
+      if mod.match(/^git:\/\//) isnt null or mod.match(/^https:\/\//) isnt null
+        modsrc = mod
+      else if m = require mod then try
+        require.resolve mod
+      if modsrc? then @installList[modsrc] = true
+      else @installList[mod] = true
+
+  global.api = api = new IRApi
   api.EventEmitter = EventEmitter
   api[k] = v for k,v of opts
 
   api.optimist = optimist = require 'optimist'
-
+  api.ync     = require 'ync'
   api.xl = xl = require 'xumlib'
-  api.Xync = xl.Xync
-  api.Xhell = xl.Xhell
+  api.Xync   = xl.Xync
+  api.Xhell  = xl.Xhell
   api.Xcript = xl.Xcript
-  api.Xlyph = xl.Xlyph
+  api.Xlyph  = xl.Xlyph
+  api.Xoin   = xl.Xoin
 
   # Check out the environment
-  api.os = os = require 'os'
+  api.os  = os = require 'os'
   os.arch = os.arch().toLowerCase() # TOTHINK: overcache, consider maybe not
   os.type = os.type().toLowerCase() # TOTHINK: overcache, consider maybe not
 
@@ -36,7 +54,6 @@ module.exports = (opts={}) ->
   api.fs = fs = require 'fs'
   api.colors  = require 'colors'
   api.cp      = require 'child_process'
-  api.ync     = require 'ync'
 
   # Quick crypto functions {everyday hashes}
   api.crypto = crypto = require 'crypto'
@@ -62,14 +79,14 @@ module.exports = (opts={}) ->
   api.OTR = OTR = if api.GUI
       optimist.argv = argv = optimist.parse api.gui.App.argv
       _dotdir()
-      require DOTDIR + '/node-webkit/buffertools' # load buffertools
-      require DOTDIR + '/node-webkit/otr4' # return otr object
+      require DOTDIR + '/nwmod/buffertools' # load buffertools
+      require DOTDIR + '/nwmod/otr4' # return otr object
     else
       _dotdir()
       require 'buffertools' # load buffertools
       require 'otr4'  # return otr object
 
-  # Initialize Settings object 
+  # Initialize Settings object
   api.Storable = require 'storable'
   api.Settings = Settings = new api.Storable DOTDIR + '/user.json',
     defaults : name : 'anonymous', port : 33023, torport : 9051, reconnect_interval : 5000
@@ -77,6 +94,5 @@ module.exports = (opts={}) ->
   Settings.buddy = {} unless Settings.buddy?
 
   # Load core modules
-
   for m in [ 'i19', 'tor', 'audio', 'kreem', 'tools' ]
     api[k] = v for k,v of require './' + m

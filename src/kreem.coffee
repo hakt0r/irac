@@ -1,9 +1,9 @@
 ###
- 
+
   | irac |
 
     2010-2013 [GPL] / version 0.9 - kreem
-    github.com/hakt0r/irac 
+    github.com/hakt0r/irac
 
     anx    [ ulzq.de ] 2010-2013
     flyc0r [ ulzq.de ] 2010,2013
@@ -14,9 +14,9 @@
   Settings, sha512, md5, mkdir, xl, cp, OTR
 } = ( api = global.api )
 
-_log = (args...) -> console.log Settings.name.yellow + '] ' + args.concat().join ' ' 
+_log = (args...) -> console.log Settings.name.yellow + '] ' + args.concat().join ' '
 
-IRAC = 
+IRAC =
   ini : 1
   otr : 2
   msg : 3
@@ -45,7 +45,7 @@ IRAC =
     group = IRAC.byId unless group?
     id = IRAC.laststream++
     head = IRAC.message IRAC.msg, null, "#{id} #{mime}"
-    socket.write head for k, socket of group 
+    socket.write head for k, socket of group
     b = new Buffer 9
     b.writeUInt8 IRAC.frm, 0
     b.writeUInt32LE id, 5
@@ -115,7 +115,7 @@ new_connection = (err, socket, opts) -> unless err
       else new Buffer []
     msg = if binbuf.length > 0
         binbuf.push data.slice 0, binbuf.total - data.length
-        Buffer.concat binbuf 
+        Buffer.concat binbuf
       else data.slice 0, binbuf.total - data.length
     IRAC.rcvframe binbuf.streamId, msg
     pt.msghandler = iracfrmp; binbuf = null
@@ -124,7 +124,7 @@ new_connection = (err, socket, opts) -> unless err
     IRAC.sockfail(socket,'protocol_error') 'Malformed Handshake: ' + type unless type is IRAC.ini
     pt.frmhandler = iracctlp
     msg = data.toString('utf8').split ':'
-    info.name = msg[0]; info.onion = msg[1]+':'+msg[2]; 
+    info.name = msg[0]; info.onion = msg[1]+':'+msg[2];
     # Set up OTR
     # _log 'new otr session with '.blue + info.onion.green
     info.otr.ctx = ctx = User.ConnContext(Settings.onion, "irac", info.onion)
@@ -179,7 +179,7 @@ new_connection = (err, socket, opts) -> unless err
             b.session = info
             api.emit 'buddy.online', b, info
             if ctx.trust() is 'smp'
-              _log "authenticated".green, info.name.yellow, '[', info.onion.blue, ']' 
+              _log "authenticated".green, info.name.yellow, '[', info.onion.blue, ']'
               api.emit 'buddy.trusted', b, info
           else if Settings.onion < info.onion
             _log "Closing connection - already connected to [ #{info.onion.blue} ]".red
@@ -187,7 +187,7 @@ new_connection = (err, socket, opts) -> unless err
             socket.end()
         if parseInt(info.onion,36) < parseInt(Settings.onion,36)
           _log 'HELO '.blue + info.onion
-          socket.otr String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM' 
+          socket.otr String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM'
         else _log 'HELO '.green + info.onion
       when IRAC.msg
         msg = data.toString('utf8').split ' '
@@ -219,7 +219,7 @@ class Buddy
     # console.log 'returning false'.cyan
     false
   @connectAll : -> @connect k for k,v of Settings.buddy
-    
+
 listen = (callback) -> Tor.start ->
   tls = require "tls"
   options = rejectUnauthorized : no, key: Settings.ssl.key, cert: Settings.ssl.cert
@@ -284,7 +284,7 @@ listen = (callback) -> Tor.start ->
   Self connect test via tor for the init process and later maybe regular checks
 ###
 
-connect_self = (callback) -> 
+connect_self = (callback) ->
   api.on 'init.callmyself.success', callback if callback?
   attempt = ->
     api.emit 'init.callmyself'
