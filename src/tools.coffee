@@ -128,8 +128,7 @@ module.exports.init = init = (callback) ->
         @log 'sudo apt-get install opus-tools build-essential make awk g++ nodejs nodejs-dev libotr5 libotr5-dev'.red
       if (@firstboot = firstboot) is true or api.init.force?
         @log 'firstboot'.blue
-        Settings.read()
-        Tor.genkeys =>
+        Settings.read => Tor.genkeys =>
           Settings.ssl = {} unless Settings.ssl?
           j = new Xoin true
           j.part -> Tor.start j.join

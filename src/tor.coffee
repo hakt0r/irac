@@ -31,9 +31,10 @@ module.exports.Tor = class Tor
       checkport : ->
         portfinder.basePort = Settings.torport
         portfinder.getPort (err,port) =>
-          if port isnt portfinder.basePort
+          @log port
+          if port isnt portfinder.basePort and not api.init.force?
             Tor.running = yes
-            console.log 'tor'.grey, 'tor seems to be running'.yellow
+            @log "tor seems to be running on port #{Settings.torport}".yellow
             @run 'done'
           else @proceed()
       config : -> fs.writeFile DOTDIR + '/torrc', Tor.makerc(), @proceed

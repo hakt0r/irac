@@ -89,7 +89,7 @@ module.exports = (opts={}) ->
   # Initialize Settings object
   api.Storable = require 'storable'
   api.Settings = Settings = new api.Storable DOTDIR + '/user.json',
-    defaults : name : 'anonymous', port : 33023, torport : 9051, reconnect_interval : 5000
+    defaults : name : 'anonymous', port : 33023, torport : 9060, reconnect_interval : 5000
     override : argv
   Settings.buddy = {} unless Settings.buddy?
 
