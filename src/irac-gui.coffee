@@ -10,7 +10,9 @@
 
 ###
 
-require( ( _base = './js' ) +'/common') $ : $, GUI : true, gui : require 'nw.gui'
+_base = './js'
+
+require( _base + '/common' ) $ : $, GUI : true, gui : require 'nw.gui'
 
 { i19, GUI, DOTDIR, connect, gui, optimist, fs, ync, Tor, Player, Recorder, Settings } = ( api = global.api )
 

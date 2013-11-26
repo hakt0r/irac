@@ -35,9 +35,9 @@ class HackyPlayer extends EventEmitter
 class HackyRecorder extends EventEmitter
   running : no
   toggle : => if @running then @stop() else @start()
-  start  : =>
+  start : (group) =>
     return if @running
-    feed = api.IRAC.announce 'audio/opus'
+    feed = api.IRAC.announce 'audio/opus', group
     @record = cp.spawn 'arecord',['-c','1','-r','48000','-twav','-'],stdio:['pipe','pipe','ignore']
     encode  = cp.spawn 'opusenc',['--ignorelength','--bitrate','96','-','-'],stdio:['pipe','pipe','ignore']
     @record.stdout.pipe encode.stdin
