@@ -37,9 +37,12 @@ menu.append new gui.MenuItem type:  'separator'
 menu.append new gui.MenuItem label: 'Quit', click : -> process.exit(0)
 tray.menu = menu
 
-gui.Window.get().showDevTools()
+win = gui.Window.get()
+gui.main = win
+gui.api = api
+win.showDevTools()
 
-update_profile = ->
+update_profile = api.update_profile = ->
   $('#profile > .nick').html Settings.name
   $('#profile > .onion').html Settings.onion + ':' + Settings.port
   $('#profile > .avatar').attr 'src', 'file://' + Settings.avatarPath
@@ -76,6 +79,7 @@ $(document).ready ->
 
   # Handle api's events
   api.on 'error', console.error
+  api.on 'pmsg', api.history
 
   api.on 'init.firsttimesetup', (callback) -> firsttimesetup = new Dialog
     id : 'firsttimesetup'
@@ -102,50 +106,33 @@ $(document).ready ->
         Settings.avatarPath = files[0].path if files.length > 0
         Settings.save => @close null, update_profile()
 
-  init_progress = new Progress title : 'Connecting to network...', frame : History
-  # api.on 'tor.log', (line) -> console.log line
+  init_progress = new Progress title : 'Start', frame : History
+  api.on 'tor.log', (line) -> console.log line
   #api.on 'init.confdir', -> init_progress.value 5
 
   api.on 'init.readconf', ->
     init_progress.value 10, i19['init.readconf']
     update_profile()
 
-    # 'Settings' Dialog
-    settings = new Dialog
-      id : 'settings'
-      form :
-        nick    : type : Text,    value: Settings.name,    title : 'Public Nickname'
-        port    : type : Numeric, value: Settings.port,    title : 'irac Port (33023)'
-        torport : type : Numeric, value: Settings.torport, title : 'tor proxy Port (9051)'
-        privkey : type : Text,    value: Tor.readOnion() , title : 'Your ID'
-        onion   : type : Text,    value: Tor.readKey(),    title : 'Your Private Key'
-        avatar  : type : File,                             title : 'Avatar'
-      btn :
-        cancel  : title : 'Cancel', click : -> @toggle()
-        default : title : 'Save',   click : ->
-          Settings.name    = @$.find('#nick').val()
-          Settings.port    = parseInt @$.find('#port').val()
-          Settings.torport = parseInt @$.find('#torport').val()
-          files = @$.find('input[type="file"]')[0].files
-          Settings.avatarPath = files[0].path if files.length > 0
-          Settings.save => @toggle null, update_profile()
-    add = $('#settings').on 'click', -> settings.toggle()
-
   state =
    'init.checkdir' : 10
    'init.otr' : 10
    'init.otr.done' : 15
-   'tor.checkport' : 22
-   'tor.updaterc' : 24
+   'tor.start' : 22
+   'tor.port' : 22
+   'tor.conf' : 24
    'init.readconf' : 25
-   'tor.start' : 26
    'tor.ready' : 30
    'init.listen' : 40
    'init.callmyself' : 50
    'init.callmyself.success' : 100
 
+  api.on 'init.callmyself.success', ->
+    $('#main a[href="#home"]').tab('show')
+  $('#main a[href="#history"]').tab('show')
+
   hookstate = (k,v) -> api.on k, ->
-    console.debug process.pid + ' [debug] ' + ' ' + k + ' ' + v
+    # console.debug process.pid + ' [debug] ' + ' ' + k + ' ' + v
     init_progress.value v, i19[k]
   hookstate k,v for k,v of state
 

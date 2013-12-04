@@ -3,7 +3,7 @@ module.exports.i19 =
   'tor.readconf' : "Reading irac configuration"
   'init.otr' : "Generating OTR-Key (this may take a while)"
   'init.otr.done' : "OTR-Key was successfully generated"
-  'tor.checkport' : "Checking if Tor is running"
+  'tor.port' : "Checking if Tor is running"
   'tor.updaterc' : "Updating torrc"
   'tor.start' : "Starting Tor"
   'tor.ready' : "Tor is ready"

@@ -8,22 +8,31 @@
   <link rel='stylesheet' href='css/styles.css' />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 </head><body style="-webkit-app-region: drag">
-  <div id="header">
-    <div id="menu">
-      <button id="logo" src="var/theme/logo.svg"></button>
-      <button id="play"></button>
-      <button id="upload"></button>
-      <button id="add"></button>
-      <button id="settings"></button>
-    </div>
-    <div id="profile" class="buddy">
-      <img  class="avatar" src="#" />
-      <span class="onion"></span>
-      <span class="nick"></span>
+  <div id="main">
+    <ul class="nav nav-tabs">
+      <li><a href="#home" data-toggle="tab">You</a></li>
+      <li><a href="#buddys" class='img-add' data-toggle="tab">Buddys</a></li>
+      <li><a href="#settings" class='img-settings' data-toggle="tab">Settings</a></li>
+      <li><a href="#history" class="active" data-toggle="tab">Log</a></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane active" id="history"></div>
+      <div class="tab-pane" id="home">
+        <div id="menu">
+          <button class='img-logo' id="logo"></button>
+          <button class='img-play' id="play"></button>
+          <button class='img-upload' id="upload"></button>
+          <button class='img-add' id="add"></button>
+        </div>
+        <div id="profile" class="buddy">
+          <img  class="avatar" src="#" />
+          <span class="onion"></span>
+          <span class="nick"></span>
+        </div>
+      </div>
+      <div class="tab-pane" id="buddys"></div>
     </div>
   </div>
-  <div id="buddys"></div>
-  <div id="history"></div>
   <input style="display:none;" id="fileDialog" type="file" />
   <input style="display:none;" id="fileSaveDialog" type="file" nwsaveas />
 </body>

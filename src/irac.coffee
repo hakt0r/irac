@@ -14,13 +14,13 @@
 
 require('./common') { GUI : false }
 
-{ ync, optimist, DOTDIR, Tor, xl, Xhell, Xcript, Settings } = ( api = global.api )
+{ ync, optimist, DOTDIR, Tor, xl, Settings } = ( api = global.api )
 
 _me  = 'cli'.blue; argv = optimist.argv
 
 optimist.argv.debug = yes # REMOVEME: dev
 if optimist.argv.debug?
-  api.on 'tor.log', (line) -> Xhell.log '['+'tor'.yellow+'log]', line.trim().black
+  api.on 'tor.log', (line) -> console.log '['+'tor'.yellow+'log]', line.trim().black
 
 switch (cmd = optimist.argv._.shift())
   when 'init'    then api.init (->), api.init.force = yes
@@ -29,9 +29,9 @@ switch (cmd = optimist.argv._.shift())
   else api.init -> Settings.read -> switch cmd
     when 'id'    then console.log [ Settings.name + '@' + (s = Tor.hiddenService['kreem']).onion, s.pubkey ].join '\n'
     when 'key'   then console.log Tor.hiddenService[if optimist.argv._.length > 0 then optimist.argv._.shift() else 'kreem'].pubkey
-    when 'tor'   then Tor.start -> api.on 'tor.log', console.log
-    when 'name'  then console.log Settings.name, 33023
-    when 'port'  then console.log Tor.port, 33023
+    when 'tor'   then Tor.init -> api.on 'tor.log', console.log
+    when 'name'  then console.log Settings.name
+    when 'port'  then console.log Tor.port
     when 'buddy' then console.log Settings
     when 'service' then console.log v.onion.red, v.port for k, v of Tor.hiddenService
     else api.listen()

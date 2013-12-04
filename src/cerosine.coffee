@@ -10,22 +10,29 @@
 
 ###
 
-{ $ } = ( api = global.api )
+{ $, gui } = ( api = global.api )
 
 class Dialog
+  @__id : -1
   hidden : yes
   constructor : (opts={}) ->
     me = @
-    { @id, @frame, btn, html, form, hide } = opts
-    @frame = Dialog.frame unless @frame?
+    { @id, className, @frame, btn, html, form, hidden, onetime } = opts
+    className = 'dialog' unless className?
+    @frame   = Dialog.frame unless @frame?
+    @onetime = if onetime?
+        @hidden = no if onetime
+        onetime
+      else no
     @hidden = hidden if hidden?
+    @id = Dialog.__id++ unless @id?
     @frame.append """
-      <div class="dialog" id="#{@id}">
+      <div class="#{className}" id="#{@id}">
         <form role="form" target="#">
         </form>
       </div>"""
-    @outer = $ @frame.find('.dialog').toArray().pop()
-    @$     = $ @frame.find('.dialog > form').toArray().pop()
+    @outer = $ @frame.find('.'+className).toArray().pop()
+    @$ = $ @frame.find('.'+className+' > form').toArray().pop()
     @$.append html if html?
     ( _new_fld = (id, opts) =>
       opts.id = id unless opts.id?
@@ -38,10 +45,13 @@ class Dialog
       opts.id = id    unless opts.id?
       opts.frame = @$ unless opts.frame?
       opts.parent = me
-      new Button opts )  id, click for id, click of btn
-    if @hidden then @outer.fadeOut(0)
-  close  : (c) => @hide c
-  show   : (c) => if @hidden
+      new Button opts ) id, click for id, click of btn
+    @$.append """<div style="clear:both"></div>"""
+    @outer.fadeOut(0) if @hidden
+  close : (c) => @hide =>
+    setTimeout ( => @outer.remove() ) if @onetime
+    c() if c?
+  show : (c) => if @hidden
     #@outer.css 'display', 'block'; @hidden = false; c() if c?
     @outer.fadeIn  c; @hidden = false
   hide   : (c) => unless @hidden
@@ -60,17 +70,17 @@ class Progress
     val = 0 unless val?
     @frame.prepend """
       <div class="notify-progress">
-        <h4>#{@title} <b>#{@description}</b></h4>
+        <h4>#{@title} <i>#{@description}</i></h4>
         <div class="progress active"><div class="progress-bar"  role="progressbar" aria-valuenow="#{val}" aria-valuemin="0" aria-valuemax="100" style="width: 0%"><span class="sr-only">0%</span></div></div>
       </div>"""
-    @$   = $ @frame.find('> div').toArray().shift()
+    @$ = $ @frame.find('> div').toArray().shift()
     @bar = $ @$.find('.progress-bar').toArray().pop()
     @status = $ @$.find('.sr-only').toArray().pop()
   value : (val, description) =>
     @bar.css 'width', val + '%'
     @status.html val + '%'
     ( @$.fadeOut => @$.remove() ) if val is 100
-    @$.find('b').html description if description?
+    @$.find('i').html description if description?
   remove : =>
     console.log @$
     @$.remove()

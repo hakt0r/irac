@@ -37,13 +37,8 @@ module.exports = (opts={}) ->
   api[k] = v for k,v of opts
 
   api.optimist = optimist = require 'optimist'
-  api.ync     = require 'ync'
-  api.xl = xl = require 'xumlib'
-  api.Xync   = xl.Xync
-  api.Xhell  = xl.Xhell
-  api.Xcript = xl.Xcript
-  api.Xlyph  = xl.Xlyph
-  api.Xoin   = xl.Xoin
+  api.ync = require 'ync'
+  api.xl = require 'xumlib'
 
   # Check out the environment
   api.os  = os = require 'os'
@@ -52,6 +47,7 @@ module.exports = (opts={}) ->
 
   # Library exports, node-webkit is the reason for using the global.api scope
   api.fs = fs = require 'fs'
+  api.path    = require 'path'
   api.colors  = require 'colors'
   api.cp      = require 'child_process'
 

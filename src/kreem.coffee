@@ -17,10 +17,12 @@
 _log = (args...) -> console.log Settings.name.yellow + '] ' + args.concat().join ' '
 
 IRAC =
-  ini : 1
-  otr : 2
-  msg : 3
-  frm : 4
+  ini  : 1
+  otr  : 2
+  msg  : 3
+  frm  : 4
+  pmsg : 5
+  req  : 6
 
   byId  : {}
   buddy : {}
@@ -58,7 +60,7 @@ IRAC =
 
   recieve : (id,mime) ->
     p = DOTDIR + '/tmp/' + id
-    _log 'stream'.red, id, mime, p
+    # _log 'stream'.red, id, mime, p
     w = fs.createWriteStream p
     d = cp.spawn('padsp',['opusdec','-'],stdio:['pipe','ignore','ignore'])
     IRAC.stream[id] = id:id,path:p,file:w,buffer:0,offset:0,decoder:d
@@ -81,7 +83,7 @@ new_connection = (err, socket, opts) -> unless err
   ses = ctx = binbuf = null
   id = IRAC.lastclient++
 
-  info = socket.info = id : id, user : 'anonyomus', otr : {}
+  info = socket.info = id : id, name : 'anonyomus', otr : {}
   info[k] = v for k,v of info
 
   socket.on "error",   IRAC.sockfail socket, 'error'
@@ -103,7 +105,6 @@ new_connection = (err, socket, opts) -> unless err
           IRAC.rcvframe streamId, msg
           null
         else pt.frmhandler type, msg
-        # _log "frm".yellow + ' ' + msg.length + ' ' + msg.toString 'utf8'
     null
 
   iracbinp = (data) ->
@@ -125,51 +126,33 @@ new_connection = (err, socket, opts) -> unless err
     pt.frmhandler = iracctlp
     msg = data.toString('utf8').split ':'
     info.name = msg[0]; info.onion = msg[1]+':'+msg[2];
-    # Set up OTR
-    # _log 'new otr session with '.blue + info.onion.green
     info.otr.ctx = ctx = User.ConnContext(Settings.onion, "irac", info.onion)
     info.otr.ses = ses = new OTR.Session User, ctx,
       policy: OTR.POLICY("ALWAYS") + OTR.POLICY('REQUIRE_ENCRYPTION')
       MTU : 5000
     ses.on "error", _log
-    ses.on "message", (data) ->
-      #_log 'otrin'.blue, md5 data
-      iracctlp data.charCodeAt(0), data.substr(1)
-    ses.on "inject_message", (data) ->
-      #_log 'otrout'.red, md5 data
-      socket.write IRAC.message(IRAC.otr,null,data)
-    ses.on "msg_event", (num,msg,err) ->
-      _log OTR.MSGEVENT(num).red + ": " + msg + ':' + err
-      # ses.connect()
-    ses.on "create_instag", (accountname,protocol) ->
-      # _log 'Create instag for '.red + accountname, protocol
-      User.generateInstag accountname, protocol, (err,tag) ->
-        # _log 'Created instag for '.green + accountname, protocol
+    ses.on "message", (data) -> iracctlp data.charCodeAt(0), data.substr(1)
+    ses.on "inject_message", (data) -> socket.write IRAC.message(IRAC.otr,null,data)
+    ses.on "msg_event", (num,msg,err) -> _log OTR.MSGEVENT(num).red + ": " + msg + ':' + err
+    ses.on "create_instag", (accountname,protocol) -> User.generateInstag accountname, protocol, (err,tag) ->
         User.writeInstags()
-    ses.on "create_privkey", (accountname,protocol) ->
-      # _log 'Create privkey for '.red + accountname, protocol
-      User.generateKey accountname, protocol, (err,tag) ->
-        # _log 'Created privkey for '.green + accountname, protocol
-    ses.on "new_fingerprint", (fingerprint) ->
-      # _log 'FINGERPRINT'.yellow, info.name, fingerprint
-      User.writeFingerprints()
+    ses.on "create_privkey", (accountname,protocol) -> User.generateKey accountname, protocol, (err,tag) ->
+    ses.on "new_fingerprint", (fingerprint) -> User.writeFingerprints()
     _sec = (evt,callback) -> ses.on evt, -> callback() if callback?
     _sec 'gone_secure', ->
       ses.send String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM' if parseInt(info.onion,36) > parseInt(Settings.onion,36)
     _sec 'still_secure'
     ses.on "smp_complete", -> User.writeFingerprints()
     socket.otr = (data) -> ses.send data
+    info.sendpmsg = (message) -> ses.send String.fromCharCode(IRAC.pmsg) + message
     ses.connect() if parseInt(info.onion,36) < parseInt(Settings.onion,36)
     IRAC.byId[info.onion] = socket
     api.emit 'connection', info # TODO: move to ses.gone_secure :D
     null
 
   iracctlp = (type, data) ->
-    # _log 'ctl'.red + ':' + type + ':' + data
     switch type
-      when IRAC.otr
-        # _log 'otrfrm'.blue, md5 data.toString 'utf8'
-        ses.recv data.toString 'utf8'
+      when IRAC.otr then ses.recv data.toString 'utf8'
       when IRAC.ini
         msg = data.toString('utf8').split ' '
         info.class   = msg.shift()
@@ -177,6 +160,13 @@ new_connection = (err, socket, opts) -> unless err
         if (b = Settings.buddy[info.onion])?
           unless b.session?
             b.session = info
+            sb = Settings.buddy[info.onion]
+            sb.name = info.name
+            Settings.save ->
+              console.log Settings.buddy[info.onion]
+              Settings.read ->
+                console.log Settings.buddy[info.onion]
+            # socket.otr String.fromCharCode(IRAC.req) + 'private/avatar' unless sb.avatar?
             api.emit 'buddy.online', b, info
             if ctx.trust() is 'smp'
               _log "authenticated".green, info.name.yellow, '[', info.onion.blue, ']'
@@ -189,6 +179,10 @@ new_connection = (err, socket, opts) -> unless err
           _log 'HELO '.blue + info.onion
           socket.otr String.fromCharCode(IRAC.ini) + 'PEER 0.9/KREEM'
         else _log 'HELO '.green + info.onion
+      when IRAC.pmsg
+        msg = data.toString('utf8')
+        api.emit 'pmsg', info, msg
+        api.emit 'pmsg.' + info.onion, msg
       when IRAC.msg
         msg = data.toString('utf8').split ' '
         id = info.name + parseInt msg[0]; mime = msg[1]
@@ -214,13 +208,13 @@ class Buddy
   @connect : (buddy) -> connect buddy, null, (success) ->
     unless success is true
       setTimeout ( ->
-        _log 'reconnect'.red, buddy.yellow
+        # _log 'reconnect'.red, buddy.yellow
         Buddy.connect buddy ), 5000 # Settings.reconnect_interval
     # console.log 'returning false'.cyan
     false
   @connectAll : -> @connect k for k,v of Settings.buddy
 
-listen = (callback) -> Tor.start ->
+listen = (callback) ->
   tls = require "tls"
   options = rejectUnauthorized : no, key: Settings.ssl.key, cert: Settings.ssl.cert
   server = tls.createServer options, (socket) -> new_connection null, socket
@@ -243,10 +237,10 @@ listen = (callback) -> Tor.start ->
     ( [ host, port ] = host.split ':'; port = parseInt port ) if host.indexOf(':') > 0
     host = host + '.onion' unless host.match 'onion$'
     onion = host.replace(/.onion$/,'')+(if port isnt 33023 then ':' + port else '')
-    # return connect_raw '127.0.0.1', port, callback # debug with raw
-    _log ['connecting', host, port, Settings.torport].join ' '
+    ##return connect_raw '127.0.0.1', port, callback # debug with raw
+    _log ['connecting', host, port, Tor.port].join ' '
     remote_options = host: host, port: port, ssl : yes
-    socks_options  = host: "127.0.0.1", port: Settings.torport
+    socks_options  = host: "127.0.0.1", port: Tor.port
     socket = new socksjs remote_options, socks_options
     onconnect = (err) ->
       unless err
@@ -299,6 +293,7 @@ connect_self = (callback) ->
   setTimeout attempt, 0
 
 module.exports =
+  Buddy : Buddy
   listen : listen
   connect : connect
   connect_raw : connect_raw

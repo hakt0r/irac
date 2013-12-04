@@ -10,81 +10,56 @@
 
 ###
 
-{ DOTDIR, cp, fs, Settings, xl, ync, Xync, Xcript } = ( api = global.api )
+{ DOTDIR, cp, fs, Settings, path, ync } = ( api = global.api )
 
-portfinder = require 'portfinder'
-
-module.exports.Tor = class Tor
-  @running : no
-  @readOnion : -> try fs.readFileSync(DOTDIR+'/hostname').toString('utf8').trim()
-  @readKey : -> try fs.readFileSync(DOTDIR+'/private_key').toString('utf8').trim()
-
-  @readConf : ->
-    Settings.onion   = Tor.readOnion().replace /.onion$/, ''
-    Settings.privkey = Tor.readKey()
-
-  @genkeys : (callback) ->
-    cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
-    new Xync
-      title : 'keygen'
-      fork : yes
-      checkport : ->
-        portfinder.basePort = Settings.torport
-        portfinder.getPort (err,port) =>
-          @log port
-          if port isnt portfinder.basePort and not api.init.force?
-            Tor.running = yes
-            @log "tor seems to be running on port #{Settings.torport}".yellow
-            @run 'done'
-          else @proceed()
-      config : -> fs.writeFile DOTDIR + '/torrc', Tor.makerc(), @proceed
-      start : -> Tor.instance = xl.scriptline cmd, line : (line) =>
-        @log line
-        @proceed() if line.trim().match /microdescriptor/
-      done : ->
-        Tor.readConf()
-        Tor.instance.kill()
-        callback() if callback?
-
-  @start : (callback) -> new Xync
-    title : 'tor'
-    checkport : ->
-      api.emit 'tor.checkport', Settings.torport
-      portfinder.basePort = Settings.torport
-      portfinder.getPort (err,port) =>
-        if port isnt portfinder.basePort
-          Tor.running = yes
-          @log 'tor seems to be running'.yellow
-          @run('ready')
-        else @proceed()
-    config : ->
-      api.emit 'tor.updaterc'
-      @log 'tor'.grey, 'update' + DOTDIR + '/torrc'
-      fs.writeFile DOTDIR + '/torrc', Tor.makerc(), @proceed
-    start  : (err) ->
-      @log err
-      api.emit 'tor.start'
-      cmd = 'tor -f '+DOTDIR+'/torrc --pidfile "' + DOTDIR + '/tor/tor.pid"'
-      @log 'running', cmd
-      Tor.instance = xl.scriptline cmd,
-        line : (line) =>
-          line = line.trim()
-          api.emit 'tor.log', line unless line is ''
-          @log line
-          @proceed() if line.match /Tor has successfully opened a circuit/
-    ready : ->
-      Tor.readConf()
-      @log 'ready'.green
-      api.emit 'tor.ready'
-      callback() if callback?
+module.exports = Tor : class Tor
 
   @stop : (callback) =>
     @instance.kill() if @instance?
-    callback if callback?
+    callback() if callback?
 
-  @makerc : -> """
-      DataDirectory #{DOTDIR}/tor
-      SocksPort #{Settings.torport}
-      HiddenServiceDir  #{DOTDIR}
-      HiddenServicePort #{Settings.port} 127.0.0.1:#{Settings.port}
-    """
+  @init : (callback, onconfig) =>
+    api.on   'tor.ready',  callback if callback?
+    api.on   'tor.config', onconfig if onconfig?
+    api.emit 'tor.start'
+    rcfile  = DOTDIR + path.sep + 'torrc'
+    pidfile = DOTDIR + path.sep + 'tor' + path.sep + 'tor.pid'
+    s = new ync.Sync
+
+      portfinder : =>
+        portfinder = require 'portfinder'
+        portfinder.basePort = Math.floor 1024 + Math.random()*10000
+        portfinder.getPort (err,@port) =>
+          api.emit 'tor.port', @port
+          s.proceed()
+
+      torrc : =>
+        api.emit 'tor.genconfig'
+        fs.writeFile rcfile, """
+          SocksPort #{@port}
+          DataDirectory #{DOTDIR}/tor
+          HiddenServiceDir #{DOTDIR}
+          HiddenServicePort #{Settings.port} 127.0.0.1:#{Settings.port}
+          """, s.proceed
+
+      kill  : ->
+        if fs.existsSync pidfile
+          pid = parseInt fs.readFileSync(pidfile,'utf8')
+          cp.spawn('kill',[pid]).on('close',s.proceed)
+        else s.proceed()
+
+      spawn : =>
+        _log = (line) -> api.emit 'tor.log', line
+        _ready = (line) -> if line.match /Tor has successfully opened a circuit/
+          cli[pipe].removeListener 'data', _ready for pipe in ['stdout','stderr']
+          api.emit 'tor.ready'
+        _config = (line) => if line.match /microdescriptor cache/
+          cli[pipe].removeListener 'data', _config for pipe in ['stdout','stderr']
+          @key   = fs.readFileSync(DOTDIR + path.sep + 'private_key','utf8').trim()
+          @onion = fs.readFileSync(DOTDIR + path.sep + 'hostname','utf8').trim()
+          # api.emit 'tor.config'
+          return @instance.kill() if onconfig? and onconfig @ is true
+        @instance = cli = cp.spawn 'tor', [ '-f', rcfile ,'--pidfile', pidfile ]
+        for pipe in ['stdout','stderr']
+          for fnc in [_log,_config,_ready]
+            cli[pipe].setEncoding 'utf8'; cli[pipe].on 'data', fnc

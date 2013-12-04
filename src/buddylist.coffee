@@ -10,27 +10,65 @@
 
 ###
 
-{ $, i19, GUI, gui, DOTDIR, connect, gui, optimist, fs, Player, Recorder, Settings, cerosine } = ( api = global.api )
+{ $, Tor, i19, GUI, gui, DOTDIR, connect, gui, optimist, fs, Player, Recorder, Settings, cerosine } = ( api = global.api )
 { HTML, Text, eMail, Field, Dialog, Button, Password, File, Numeric, Progress } = cerosine
+
+class UI
+  @settings : ->
+    _reset = ->
+      dlg.$.find('#nick').val Settings.name
+      dlg.$.find('#port').val Settings.port
+      dlg.$.find('#key').val Tor.key
+      dlg.$.find('#onion').val Tor.onion
+      f = dlg.$.find('input[type="file"]')[0].files
+      f.clear()
+      f.append Settings.avatarPath
+    dlg = new Dialog
+      id : 'settings'
+      frame : $ '#main > .tab-content'
+      className : 'tab-pane'
+      hidden : no
+      form :
+        nick   : type : Text,    value: Settings.name, title : 'Public Nickname'
+        port   : type : Numeric, value: Settings.port, title : 'irac Port (33023)'
+        onion  : type : Text,    value: Tor.onion,     title : 'Your ID'
+        key    : type : Text,    value: Tor.key,       title : 'Your Private Key'
+        avatar : type : File,                          title : 'Avatar'
+      btn :
+        cancel  : title : 'Cancel', click : -> _reset()
+        default : title : 'Save',   click : ->
+          Settings.name = @$.find('#nick').val()
+          Settings.port = parseInt @$.find('#port').val()
+          files = @$.find('input[type="file"]')[0].files
+          Settings.avatarPath = files[0].path if files.length > 0
+          api.update_profile()
+          Settings.save ->
+
+api.on 'init.readconf', ->
+  UI.settings()
+  $().tab()
+  $('#main a[href="#settings"]').tab('show')
 
 ###
   The Buddy list and Buddy-related functions
 ###
 
-module.exports = class Buddy
+class Buddy
   connection : null
   info : null
 
   constructor : (@info) ->
+    console.log @info
     Buddy.list.append """
       <span class="buddy offline" data-onion="#{@info.onion}">
         <img  class="avatar" src="img/anonymous.svg" />
+        <img  class="trust" src="img/otr_enc.svg" />
         <span class="onion">#{@info.onion}</span>
-        <span class="nick">#{@info.name if @info.name?}</span>
+        <span class="nick">#{@info.name}</span>
       </span>"""
     m = new gui.Menu()
     m.append new gui.MenuItem label: @info.onion, enabled : no
-    #m.append new gui.MenuItem label: 'Open chat', click : @openChat
+    m.append new gui.MenuItem label: 'Open chat', click : @openChat
     #m.append new gui.MenuItem label: 'Send audio', click : @sendAudio
     #m.append new gui.MenuItem label: 'Send message', click : @sendMessage
     m.append new gui.MenuItem label: 'Send file', click : @sendFile
@@ -39,6 +77,10 @@ module.exports = class Buddy
     m.append new gui.MenuItem label: 'Remove buddy', click : @remove
     @$ = $ Buddy.list.find('span.buddy').toArray().pop()
     @$.on 'click', (evt) -> m.popup evt.x, evt.y
+
+  openChat : =>
+    api.once 'chatwindow', (win) => win.init @
+    win = gui.Window.open 'chat.html', position: 'center' #, toolbar : no
 
   sendFile : =>
     chooser = $ "#fileDialog"
@@ -56,7 +98,7 @@ module.exports = class Buddy
     Settings.save()
 
   authenticate : => smp = new Dialog
-    show : yes
+    hidden : no
     id : 'smp' + @onion
     form :
       question : type : Text, title : 'Secret Question'
@@ -71,6 +113,9 @@ module.exports = class Buddy
         progress = new Progress title : 'Authenticating', frame : History
         ses.on 'smp_complete', =>
           progress.remove()
+
+  trusted : (info) =>
+    @$.find('.trust').attr 'src', 'img/otr_auth.svg'
 
   connected : (info) =>
     @info = info if info?
@@ -104,15 +149,15 @@ module.exports = class Buddy
   @list : null
   
   @add : => new Dialog
-    id : 'addBuddy'
+    onetime : true
     form : addr : type : eMail, title : 'Buddy Address', value : 'localhost:33023'
     btn :
-      cancel  : title : 'Cancel',    click : -> @toggle()
+      cancel  : title : 'Cancel',    click : -> @close()
       default : title : 'Add Buddy', click : ->
         api.connect addr = addBuddy.$.find("input").val()
         Settings.buddy[addr] = {}
         Settings.save()
-        @toggle()
+        @close()
 
   $(undefined).ready =>
     Buddy.list = $ '#buddys'
@@ -126,3 +171,8 @@ module.exports = class Buddy
 
     api.on 'buddy.offline', (buddy,info) -> Buddy.byId[info.onion].disconnected info
     api.on 'buddy.online',  (buddy,info) -> Buddy.byId[info.onion].connected info
+    api.on 'buddy.trusted', (buddy,info) -> Buddy.byId[info.onion].trusted info
+
+module.exports = 
+  UI : UI
+  Buddy : Buddy
