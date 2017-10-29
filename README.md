@@ -1,20 +1,16 @@
-## irac - 'a p2p instant messanger for tor'-ish
-
-![irac logo](https://raw.github.com/hakt0r/irac/master/img/logo.png)
-
-Built with nodejs upon Tor, TLS/SSL and OTR-Messaging,
+# irac - 'a p2p instant messenger for tor'-ish
 irac is supposed to give you a peer-to-peer (audio-) chat solution that is
 easy to set-up and easy to use.
 
 This is work in progress and not ready for field use.
 
-Similtar to [TorChat](https://github.com/prof7bit/TorChat).
+Similar to [TorChat](https://github.com/prof7bit/TorChat).
 
-### Installation
+## Installation
     $ sudo npm install irac (TODO: publish when ready ;)
     $ sudo npm install git://github.com/hakt0r/irac.git
 
-### Usage
+## Usage
     $ irac     (normal usage)
     $ irac-gui (start gui, duh)
       --nick='anonymous'
@@ -30,12 +26,14 @@ Similtar to [TorChat](https://github.com/prof7bit/TorChat).
     $ irac pack     (builds a releaseable node-webkit package)
 
 
-### Copyrights
+## Copyrights
   * c) 2010-2013 Sebastian Glaser <anx@ulzq.de>
   * c) 2010-2011 Kreem
   * c) 2010,2013 flyc0r
 
-### Licensed under GNU GPLv3
+![irac logo](https://raw.github.com/hakt0r/irac/master/img/logo.png) Built with nodejs upon Tor, TLS/SSL and OTR-Messaging,
+
+## Licensed under GNU GPLv3
 
 irac is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
